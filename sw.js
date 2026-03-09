@@ -1,4 +1,4 @@
-const CACHE_NAME = 'csa-trainer-v2.0';
+const CACHE_NAME = 'csa-trainer-v2.1';
 const urlsToCache = [
   './',
   './manifest.json',

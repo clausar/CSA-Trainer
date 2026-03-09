@@ -1,15 +1,16 @@
-Alpha 2.0
+Alpha 2.1
 
 Changelog:
-- MAJOR: Changed Service Worker caching strategy
-- HTML, CSS, and JS are NEVER cached - always fetched fresh from network
-- Only images and manifest are cached for offline support
-- Fixes persistent cache issues causing old styles to appear
-- Ensures updates are always immediately visible
+- NEW: Dark Mode! Toggle in Settings → Appearance
+- Beautiful dark theme with purple/blue gradients
+- Preference saved automatically
+- All screens and modals support dark mode
+- Smooth toggle animation
 
 Previous versions:
+- Alpha 2.0: Changed Service Worker caching strategy
 - Alpha 1.9: Updated cache busters to force CSS reload
-- Alpha 1.8: Improved mobile container width for better space utilization
+- Alpha 1.8: Improved mobile container width
 - Alpha 1.7: Reverted to centered container layout
-- Alpha 1.6: Added number key shortcuts (1-9) to select options
+- Alpha 1.6: Added number key shortcuts (1-9)
 - Alpha 1.5: Added keyboard support for Enter key

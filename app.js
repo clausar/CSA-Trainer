@@ -89,7 +89,8 @@ let questionStats = {};
 let isOfficialExam = false;
 let appSettings = {
     includeDeprecated: true,
-    verifiedOnly: false
+    verifiedOnly: false,
+    darkMode: false
 };
 let sessionStartTime = 0;
 let sessionResults = [];
@@ -1805,7 +1806,8 @@ function loadSettings() {
         console.error('Error loading settings:', e);
         appSettings = {
             includeDeprecated: true,
-            verifiedOnly: false
+            verifiedOnly: false,
+            darkMode: false
         };
     }
     
@@ -1820,7 +1822,29 @@ function loadSettings() {
         verifiedOnlyEl.checked = appSettings.verifiedOnly;
     }
     
+    // Apply dark mode
+    if (appSettings.darkMode) {
+        document.body.classList.add('dark-mode');
+        const toggle = document.getElementById('dark-mode-toggle');
+        if (toggle) {
+            toggle.classList.add('active');
+        }
+    }
+    
     console.log('Final settings:', appSettings);
+}
+
+function toggleDarkMode() {
+    appSettings.darkMode = !appSettings.darkMode;
+    document.body.classList.toggle('dark-mode');
+    document.getElementById('dark-mode-toggle').classList.toggle('active');
+    
+    try {
+        localStorage.setItem('csa_app_settings', JSON.stringify(appSettings));
+        console.log('Dark mode toggled:', appSettings.darkMode);
+    } catch (e) {
+        console.error('Error saving dark mode setting:', e);
+    }
 }
 
 function getFilteredFlashcards() {

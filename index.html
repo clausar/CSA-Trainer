@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#2c3e50">
     <meta name="description" content="CSA Trainer - App to study for ServiceNow CSA">
     <title>CSA Trainer</title>
-    <link rel="stylesheet" href="styles.css?v=20260309180000">
+    <link rel="stylesheet" href="styles.css?v=20260309190000">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
@@ -23,7 +23,7 @@
             </div>
             <div class="footer">
                 <p>Created by João Coimbra</p>
-                <p style="font-size: 0.75rem; margin-top: 5px; opacity: 0.7;">v2.0</p>
+                <p style="font-size: 0.75rem; margin-top: 5px; opacity: 0.7;">v2.1</p>
             </div>
         </div>
 
@@ -115,6 +115,21 @@
             </div>
             
             <div class="settings-card">
+                <h3 style="color: #2c3e50; margin-bottom: 20px; font-size: 1.2rem;">🎨 Appearance</h3>
+                <div class="settings-option">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <strong style="color: #2c3e50; display: block; margin-bottom: 5px; font-size: 1rem;">Dark Mode</strong>
+                            <p style="margin: 0; color: #777; font-size: 0.9rem; line-height: 1.4;">Switch between light and dark theme</p>
+                        </div>
+                        <div class="toggle-switch" id="dark-mode-toggle" onclick="toggleDarkMode()">
+                            <div class="toggle-slider"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="settings-card">
                 <h3 style="color: #2c3e50; margin-bottom: 20px; font-size: 1.2rem;">⚙️ Question Filters</h3>
                 <div class="settings-option">
                     <label class="settings-checkbox-label">
@@ -179,7 +194,7 @@
             <div class="info-card">
                 <h3 style="color: #2c3e50; margin-bottom: 15px; font-size: 1.2rem;">ℹ️ App Information</h3>
                 <div style="color: #555; line-height: 1.8;">
-                    <p style="margin: 0 0 10px 0;"><strong>Version:</strong> Alpha 2.0</p>
+                    <p style="margin: 0 0 10px 0;"><strong>Version:</strong> Alpha 2.1</p>
                     <p style="margin: 0 0 10px 0;"><strong>Created by:</strong> João Coimbra</p>
                     <p style="margin: 0 0 10px 0;"><strong>Purpose:</strong> Study tool for ServiceNow CSA certification</p>
                     <p style="margin: 0;"><strong>ServiceNow Version:</strong> Zurich</p>
@@ -615,8 +630,8 @@ B</code>
         </div>
     </div>
 
-    <script src="flashcards.js?v=20260309180000"></script>
-    <script src="app.js?v=20260309180000"></script>
+    <script src="flashcards.js?v=20260309190000"></script>
+    <script src="app.js?v=20260309190000"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
