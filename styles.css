@@ -336,6 +336,7 @@ body {
     padding: 25px;
     margin-bottom: 20px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    min-height: 200px;
 }
 
 .question-text {
@@ -1324,6 +1325,24 @@ body {
     .flashcard-front p,
     .flashcard-back p {
         font-size: 1rem;
+    }
+    
+    .question-card {
+        padding: 20px;
+        min-height: 250px;
+    }
+    
+    .question-text {
+        font-size: 1.1rem;
+        margin-bottom: 18px;
+    }
+    
+    .option {
+        padding: 12px;
+    }
+    
+    .option-text {
+        font-size: 0.95rem;
     }
 }
 
