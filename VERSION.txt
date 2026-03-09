@@ -1,0 +1,11 @@
+Alpha 1.1
+
+Changelog:
+- Fixed mobile layout (container now full width on small screens)
+- Fixed manifest.json icon purpose warnings
+- Added app icons for PWA installation
+- Fixed header alignment for Settings and Exam Configuration
+- Improved PWA configuration
+
+Previous versions:
+- Alpha 1.0: Initial release with zen mode spaced repetition
