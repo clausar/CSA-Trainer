@@ -1301,6 +1301,16 @@ body {
 }
 
 @media (max-width: 768px) {
+    body {
+        padding: 15px;
+    }
+    
+    .container {
+        max-width: 100%;
+        width: 100%;
+        padding: 25px;
+    }
+    
     .title {
         font-size: 1.8rem;
         margin-bottom: 25px;

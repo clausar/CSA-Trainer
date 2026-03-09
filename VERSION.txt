@@ -1,12 +1,13 @@
-Alpha 1.7
+Alpha 1.8
 
 Changelog:
-- Reverted mobile layout to centered container design
-- Container now stays at fixed width (500px max) on all devices
-- Maintains centered appearance with rounded corners and shadow
-- Improved readability with adjusted font sizes on mobile
+- Improved mobile layout: Container now uses full width with proper margins
+- Better space utilization on mobile devices
+- Maintains centered design with rounded corners and shadow
+- Container width: 100% on mobile with 15px padding on sides
 
 Previous versions:
+- Alpha 1.7: Reverted to centered container layout
 - Alpha 1.6: Added number key shortcuts (1-9) to select options
 - Alpha 1.5: Added keyboard support for Enter key
 - Alpha 1.4: Fixed mobile full-screen layout and improved responsive design
