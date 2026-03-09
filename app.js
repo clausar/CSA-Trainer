@@ -2228,31 +2228,56 @@ function closeExcelFormattingGuide() {
     document.getElementById('excel-formatting-modal').classList.remove('active');
 }
 
-// Keyboard handler for Enter key
+// Keyboard handler for Enter key and number keys
 function handleKeyPress(event) {
-    // Only handle Enter key
-    if (event.key !== 'Enter') return;
-    
     // Check if we're on the flashcard screen
     const flashcardScreen = document.getElementById('flashcard-screen');
     if (!flashcardScreen || !flashcardScreen.classList.contains('active')) return;
     
     // Check if any modal is open
     const activeModal = document.querySelector('.modal.active');
-    if (activeModal) return; // Don't handle Enter if modal is open
+    if (activeModal) return; // Don't handle keys if modal is open
     
-    const submitBtn = document.getElementById('submit-answer');
-    const nextBtn = document.getElementById('next-button');
-    
-    // If submit button is visible and enabled, click it
-    if (submitBtn.style.display !== 'none' && !submitBtn.disabled) {
-        event.preventDefault();
-        submitAnswer();
+    // Handle Enter key
+    if (event.key === 'Enter') {
+        const submitBtn = document.getElementById('submit-answer');
+        const nextBtn = document.getElementById('next-button');
+        
+        // If submit button is visible and enabled, click it
+        if (submitBtn.style.display !== 'none' && !submitBtn.disabled) {
+            event.preventDefault();
+            submitAnswer();
+        }
+        // If next button is visible (zen mode after answer), click it
+        else if (nextBtn.style.display !== 'none') {
+            event.preventDefault();
+            nextCard();
+        }
+        return;
     }
-    // If next button is visible (zen mode after answer), click it
-    else if (nextBtn.style.display !== 'none') {
-        event.preventDefault();
-        nextCard();
+    
+    // Handle number keys (1-9) to select options
+    const numberMatch = event.key.match(/^[1-9]$/);
+    if (numberMatch) {
+        const optionIndex = parseInt(event.key) - 1; // Convert 1-9 to 0-8
+        const options = document.querySelectorAll('.option');
+        
+        // Check if this option exists and if we can still select options
+        if (optionIndex < options.length) {
+            const submitBtn = document.getElementById('submit-answer');
+            const nextBtn = document.getElementById('next-button');
+            
+            // Only allow selection if submit button is visible (not after answering)
+            if (submitBtn.style.display !== 'none' && nextBtn.style.display === 'none') {
+                event.preventDefault();
+                const optionElement = options[optionIndex];
+                
+                // Check if option is not already marked as correct/wrong (after submission)
+                if (!optionElement.classList.contains('correct') && !optionElement.classList.contains('wrong')) {
+                    toggleOption(optionIndex, optionElement);
+                }
+            }
+        }
     }
 }
 
