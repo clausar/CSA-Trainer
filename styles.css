@@ -1300,26 +1300,30 @@ body {
     height: 16px;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 768px) {
     body {
         padding: 0;
+        align-items: flex-start;
     }
     
     .container {
         max-width: 100%;
+        width: 100%;
         margin: 0;
         border-radius: 0;
         min-height: 100vh;
         padding: 20px;
+        box-shadow: none;
     }
     
     .title {
-        font-size: 1.5rem;
+        font-size: 1.8rem;
+        margin-bottom: 25px;
     }
     
     .btn {
-        font-size: 1rem;
-        padding: 12px 24px;
+        font-size: 1.05rem;
+        padding: 14px 24px;
     }
     
     .flashcard-front p,
@@ -1333,16 +1337,20 @@ body {
     }
     
     .question-text {
-        font-size: 1.1rem;
+        font-size: 1.15rem;
         margin-bottom: 18px;
     }
     
     .option {
-        padding: 12px;
+        padding: 14px;
     }
     
     .option-text {
-        font-size: 0.95rem;
+        font-size: 1rem;
+    }
+    
+    .header h2 {
+        font-size: 1.3rem !important;
     }
 }
 
