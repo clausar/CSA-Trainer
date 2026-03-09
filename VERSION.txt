@@ -1,12 +1,12 @@
-Alpha 1.4
+Alpha 1.5
 
 Changelog:
-- Fixed mobile layout to use full screen width
-- Improved responsive design for tablets and phones (max-width: 768px)
-- Increased font sizes for better mobile readability
-- Removed box shadow on mobile for cleaner full-screen experience
+- Added keyboard support: Press Enter to submit answer and advance to next question
+- Works in both Zen and Exam modes
+- Prevents conflicts with open modals
 
 Previous versions:
+- Alpha 1.4: Fixed mobile full-screen layout and improved responsive design
 - Alpha 1.3: Added PWA screenshots for richer install UI
 - Alpha 1.2: Fixed Service Worker update mechanism and improved mobile card sizing
 - Alpha 1.1: Fixed mobile layout and PWA configuration

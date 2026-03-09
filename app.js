@@ -2227,3 +2227,34 @@ function openExcelFormattingGuide() {
 function closeExcelFormattingGuide() {
     document.getElementById('excel-formatting-modal').classList.remove('active');
 }
+
+// Keyboard handler for Enter key
+function handleKeyPress(event) {
+    // Only handle Enter key
+    if (event.key !== 'Enter') return;
+    
+    // Check if we're on the flashcard screen
+    const flashcardScreen = document.getElementById('flashcard-screen');
+    if (!flashcardScreen || !flashcardScreen.classList.contains('active')) return;
+    
+    // Check if any modal is open
+    const activeModal = document.querySelector('.modal.active');
+    if (activeModal) return; // Don't handle Enter if modal is open
+    
+    const submitBtn = document.getElementById('submit-answer');
+    const nextBtn = document.getElementById('next-button');
+    
+    // If submit button is visible and enabled, click it
+    if (submitBtn.style.display !== 'none' && !submitBtn.disabled) {
+        event.preventDefault();
+        submitAnswer();
+    }
+    // If next button is visible (zen mode after answer), click it
+    else if (nextBtn.style.display !== 'none') {
+        event.preventDefault();
+        nextCard();
+    }
+}
+
+// Add keyboard listener when page loads
+document.addEventListener('keydown', handleKeyPress);
