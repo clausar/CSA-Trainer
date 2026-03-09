@@ -1,10 +1,6 @@
-const CACHE_NAME = 'csa-trainer-v1.9';
+const CACHE_NAME = 'csa-trainer-v2.0';
 const urlsToCache = [
   './',
-  './index.html',
-  './styles.css',
-  './app.js',
-  './flashcards.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'
@@ -22,21 +18,29 @@ self.addEventListener('install', event => {
   );
 });
 
-// Estratégia Network First com fallback para cache
+// Estratégia: Network First, mas NUNCA faz cache de HTML, CSS, JS
 self.addEventListener('fetch', event => {
+  const url = new URL(event.request.url);
+  const isAsset = url.pathname.endsWith('.png') || 
+                  url.pathname.endsWith('.jpg') || 
+                  url.pathname.endsWith('.svg') ||
+                  url.pathname.endsWith('.json');
+  
   event.respondWith(
     fetch(event.request)
       .then(response => {
-        // Clona a resposta para guardar em cache
-        const responseToCache = response.clone();
-        caches.open(CACHE_NAME)
-          .then(cache => {
-            cache.put(event.request, responseToCache);
-          });
+        // Só faz cache de assets (imagens, manifest)
+        if (isAsset) {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME)
+            .then(cache => {
+              cache.put(event.request, responseToCache);
+            });
+        }
         return response;
       })
       .catch(() => {
-        // Se falhar, usa a cache
+        // Se falhar, usa a cache (só para assets)
         return caches.match(event.request);
       })
   );

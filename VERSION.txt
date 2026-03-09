@@ -1,17 +1,15 @@
-Alpha 1.9
+Alpha 2.0
 
 Changelog:
-- Updated cache busters for CSS and JS files to force reload
-- Ensures mobile layout changes are properly applied
-- Fixed persistent cache issues on mobile devices
+- MAJOR: Changed Service Worker caching strategy
+- HTML, CSS, and JS are NEVER cached - always fetched fresh from network
+- Only images and manifest are cached for offline support
+- Fixes persistent cache issues causing old styles to appear
+- Ensures updates are always immediately visible
 
 Previous versions:
+- Alpha 1.9: Updated cache busters to force CSS reload
 - Alpha 1.8: Improved mobile container width for better space utilization
 - Alpha 1.7: Reverted to centered container layout
 - Alpha 1.6: Added number key shortcuts (1-9) to select options
 - Alpha 1.5: Added keyboard support for Enter key
-- Alpha 1.4: Fixed mobile full-screen layout and improved responsive design
-- Alpha 1.3: Added PWA screenshots for richer install UI
-- Alpha 1.2: Fixed Service Worker update mechanism and improved mobile card sizing
-- Alpha 1.1: Fixed mobile layout and PWA configuration
-- Alpha 1.0: Initial release with zen mode spaced repetition
