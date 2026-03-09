@@ -1,11 +1,13 @@
-Alpha 1.6
+Alpha 1.7
 
 Changelog:
-- Added number key shortcuts: Press 1 for option A, 2 for B, 3 for C, etc.
-- Number keys work the same as clicking on options
-- Improves speed for keyboard-only navigation
+- Reverted mobile layout to centered container design
+- Container now stays at fixed width (500px max) on all devices
+- Maintains centered appearance with rounded corners and shadow
+- Improved readability with adjusted font sizes on mobile
 
 Previous versions:
+- Alpha 1.6: Added number key shortcuts (1-9) to select options
 - Alpha 1.5: Added keyboard support for Enter key
 - Alpha 1.4: Fixed mobile full-screen layout and improved responsive design
 - Alpha 1.3: Added PWA screenshots for richer install UI
