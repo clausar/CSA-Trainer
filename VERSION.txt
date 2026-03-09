@@ -1,12 +1,12 @@
-Alpha 1.8
+Alpha 1.9
 
 Changelog:
-- Improved mobile layout: Container now uses full width with proper margins
-- Better space utilization on mobile devices
-- Maintains centered design with rounded corners and shadow
-- Container width: 100% on mobile with 15px padding on sides
+- Updated cache busters for CSS and JS files to force reload
+- Ensures mobile layout changes are properly applied
+- Fixed persistent cache issues on mobile devices
 
 Previous versions:
+- Alpha 1.8: Improved mobile container width for better space utilization
 - Alpha 1.7: Reverted to centered container layout
 - Alpha 1.6: Added number key shortcuts (1-9) to select options
 - Alpha 1.5: Added keyboard support for Enter key
