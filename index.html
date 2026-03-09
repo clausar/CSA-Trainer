@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2c3e50">
+    <meta name="description" content="CSA Trainer - App to study for ServiceNow CSA">
+    <title>CSA Trainer</title>
+    <link rel="stylesheet" href="styles.css?v=20260306163451">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div id="home-screen" class="screen active">
+            <h1 class="title">CSA Trainer</h1>
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="startMode('zen')" style="background: linear-gradient(135deg, #7c6fd6 0%, #8b7fc7 100%);">Zen Mode</button>
+                <button class="btn btn-primary" onclick="showExamConfig()" style="background: linear-gradient(135deg, #7c6fd6 0%, #8b7fc7 100%);">Exam Mode</button>
+                <button class="btn btn-secondary" onclick="showDatabase()" style="background: linear-gradient(135deg, #6c8cff 0%, #7dd3fc 100%);">Question Database</button>
+                <button class="btn btn-secondary" onclick="showSettings()" style="background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);">Settings</button>
+            </div>
+            <div class="footer">
+                <p>Created by João Coimbra</p>
+            </div>
+        </div>
+
+        <div id="exam-config-screen" class="screen">
+            <div class="header">
+                <button class="back-arrow" onclick="goHome()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#9e9e9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                </button>
+                <h2 style="font-size: 1.5rem; text-align: center; color: #2c3e50; font-weight: 700;">Exam Configuration</h2>
+            </div>
+            <div class="config-form">
+                <div class="form-group checkbox-group">
+                    <label>
+                        <input type="checkbox" id="official-settings" onchange="toggleOfficialSettings()">
+                        Official CSA Exam Settings
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="exam-time">Time Limit (minutes):</label>
+                    <input type="number" id="exam-time" min="1" max="120" value="30">
+                </div>
+                <div class="form-group">
+                    <label for="exam-questions">Number of Questions:</label>
+                    <input type="number" id="exam-questions" min="1" max="50" value="10">
+                </div>
+                <div class="form-group">
+                    <label for="exam-pass">Pass Percentage (%):</label>
+                    <input type="number" id="exam-pass" min="1" max="100" value="70">
+                </div>
+            </div>
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="startExamWithConfig()">Start Exam</button>
+            </div>
+        </div>
+
+        <div id="flashcard-screen" class="screen">
+            <div class="flashcard-header">
+                <button class="back-arrow" onclick="exitZenMode()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#9e9e9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                </button>
+                <div class="progress-bar">
+                    <div id="progress" class="progress-fill"></div>
+                </div>
+                <div id="timer-display" class="timer-badge"></div>
+            </div>
+            <div class="card-counter-top">
+                <span id="current-card">1</span> / <span id="total-cards">0</span>
+            </div>
+            
+            <div class="question-card">
+                <p id="question-text" class="question-text"></p>
+                <div id="options-container" class="options-container"></div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-primary" id="submit-answer" onclick="submitAnswer()" disabled>Submit Answer</button>
+                <button class="btn btn-primary" id="next-button" onclick="nextCard()" style="display: none;">Next Question</button>
+            </div>
+        </div>
+
+        <div id="settings-screen" class="screen">
+            <div class="header">
+                <button class="back-arrow" onclick="goHome()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#9e9e9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                </button>
+                <h2 style="font-size: 1.5rem; text-align: center; color: #2c3e50; font-weight: 700;">Settings</h2>
+            </div>
+            
+            <div class="stats-card">
+                <h3 style="color: #2c3e50; margin-bottom: 20px; font-size: 1.2rem;">📊 Statistics</h3>
+                <div class="stat-row">
+                    <span class="stat-label">Total Questions</span>
+                    <span class="stat-value" id="stats-total">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Correct Answers</span>
+                    <span class="stat-value correct" id="stats-correct">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Wrong Answers</span>
+                    <span class="stat-value wrong" id="stats-wrong">0</span>
+                </div>
+            </div>
+            
+            <div class="settings-card">
+                <h3 style="color: #2c3e50; margin-bottom: 20px; font-size: 1.2rem;">⚙️ Question Filters</h3>
+                <div class="settings-option">
+                    <label class="settings-checkbox-label">
+                        <input type="checkbox" id="include-deprecated" onchange="saveSettings()">
+                        <div>
+                            <strong>Include Deprecated Questions</strong>
+                            <p>Show questions marked as deprecated in game modes</p>
+                        </div>
+                    </label>
+                </div>
+                <div class="settings-option">
+                    <label class="settings-checkbox-label">
+                        <input type="checkbox" id="verified-only" onchange="saveSettings()">
+                        <div>
+                            <strong>Verified Questions Only</strong>
+                            <p>Only show questions marked as verified in game modes</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="import-card">
+                <h3 style="color: #2c3e50; margin-bottom: 15px; font-size: 1.2rem;">📥 Import Questions</h3>
+                <button class="btn btn-primary" onclick="openImportModal()" style="width: 100%; margin-bottom: 15px;">Import from Excel</button>
+                <p style="color: #777; font-size: 0.85rem; margin: 0 0 10px 0; line-height: 1.5;">
+                    Bulk import questions and answers from an Excel spreadsheet to quickly build your question database.
+                </p>
+                <a href="#" onclick="event.preventDefault(); openExcelFormattingGuide();" style="color: #667eea; text-decoration: none; font-size: 0.9rem; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">
+                    📋 Excel Formatting Rules
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                </a>
+            </div>
+            
+            <div class="settings-card">
+                <h3 style="color: #2c3e50; margin-bottom: 20px; font-size: 1.2rem;">🔄 Zen Mode</h3>
+                <button class="btn btn-secondary" onclick="resetZenDeck()" style="width: 100%; margin-bottom: 10px;">Reset Zen Deck</button>
+                <p style="color: #777; font-size: 0.85rem; margin: 0; line-height: 1.5;">
+                    Reset the spaced repetition progress and start fresh with all questions in original order.
+                </p>
+            </div>
+            
+            <div class="settings-card">
+                <h3 style="color: #2c3e50; margin-bottom: 20px; font-size: 1.2rem;">📊 Statistics</h3>
+                <button class="btn btn-secondary" onclick="resetStatistics()" style="width: 100%; margin-bottom: 10px; background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white;">Reset All Statistics</button>
+                <p style="color: #777; font-size: 0.85rem; margin: 0; line-height: 1.5;">
+                    Clear all question statistics (appeared, correct, wrong counts). This action cannot be undone.
+                </p>
+            </div>
+            
+            <div class="settings-card" style="border: 2px solid #e74c3c;">
+                <h3 style="color: #e74c3c; margin-bottom: 20px; font-size: 1.2rem;">⚠️ Danger Zone</h3>
+                <button class="btn btn-danger" onclick="resetApp()" style="width: 100%; margin-bottom: 10px;">Reset Entire App</button>
+                <p style="color: #e74c3c; font-size: 0.85rem; margin: 0; line-height: 1.5; font-weight: 600;">
+                    ⚠️ This will delete ALL questions, statistics, and zen deck progress. The app will return to its original state. This action cannot be undone!
+                </p>
+            </div>
+            
+            <div class="info-card">
+                <h3 style="color: #2c3e50; margin-bottom: 15px; font-size: 1.2rem;">ℹ️ App Information</h3>
+                <div style="color: #555; line-height: 1.8;">
+                    <p style="margin: 0 0 10px 0;"><strong>Version:</strong> Alpha 1.0</p>
+                    <p style="margin: 0 0 10px 0;"><strong>Created by:</strong> João Coimbra</p>
+                    <p style="margin: 0 0 10px 0;"><strong>Purpose:</strong> Study tool for ServiceNow CSA certification</p>
+                    <p style="margin: 0;"><strong>ServiceNow Version:</strong> Zurich</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="import-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Import Questions</h2>
+                    <button class="modal-close" onclick="closeImportModal()">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="file-upload-area" id="file-upload-area">
+                        <input type="file" id="excel-file" accept=".xlsx,.xls" style="display: none;" onchange="handleFileSelect(event)">
+                        <div class="upload-icon">📄</div>
+                        <p>Click to select or drag and drop Excel file</p>
+                        <button class="btn btn-secondary" onclick="document.getElementById('excel-file').click()">Choose File</button>
+                        <p id="file-name" style="margin-top: 10px; color: #667eea; font-weight: 600;"></p>
+                    </div>
+                    
+                    <div id="processing-bar" style="display: none; margin: 20px 0;">
+                        <div style="background: #ecf0f1; border-radius: 10px; height: 8px; overflow: hidden;">
+                            <div id="progress-import" style="background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); height: 100%; width: 0%; transition: width 0.3s;"></div>
+                        </div>
+                        <p id="processing-text" style="text-align: center; color: #667eea; margin-top: 10px; font-weight: 600;"></p>
+                    </div>
+                    
+                    <div class="import-options">
+                        <label class="radio-option">
+                            <input type="radio" name="import-mode" value="insert" checked>
+                            <div>
+                                <strong>Insert</strong>
+                                <p>Add new questions to existing ones (skip duplicates)</p>
+                            </div>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="import-mode" value="replace">
+                            <div>
+                                <strong>Replace</strong>
+                                <p>Delete all existing questions and import new ones</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeImportModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="processImport()" id="import-btn" disabled>Import</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="database-screen" class="screen">
+            <div class="header">
+                <button class="back-arrow" onclick="goHome()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#9e9e9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                </button>
+                <h2 style="font-size: 1.5rem; color: #2c3e50; font-weight: 700; flex: 1; text-align: center; margin: 0 10px;">Question Database</h2>
+                <button class="search-btn" onclick="toggleSearch()" title="Search questions">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                </button>
+                <button class="add-question-btn" onclick="openAddQuestionModal()" title="Add new question">+</button>
+            </div>
+            <div id="search-container" class="search-container" style="display: none;">
+                <input type="text" id="search-input" class="search-input" placeholder="Search questions..." oninput="filterDatabase()">
+                <button class="search-clear-btn" onclick="clearSearch()" title="Clear search">×</button>
+            </div>
+            <div class="database-content" id="database-list"></div>
+        </div>
+
+        <div id="results-screen" class="screen">
+            <div class="results-container">
+                <div id="results-status-icon" class="results-status-icon"></div>
+                <h1 id="results-title" class="results-title"></h1>
+                <p id="results-subtitle" class="results-subtitle"></p>
+                
+                <div class="results-stats-grid">
+                    <div class="results-stat-card">
+                        <div class="results-stat-label">Score</div>
+                        <div id="results-score" class="results-stat-value"></div>
+                    </div>
+                    <div class="results-stat-card">
+                        <div class="results-stat-label">Time</div>
+                        <div id="results-time" class="results-stat-value"></div>
+                    </div>
+                    <div class="results-stat-card correct">
+                        <div class="results-stat-label">Correct</div>
+                        <div id="results-correct" class="results-stat-value"></div>
+                    </div>
+                    <div class="results-stat-card wrong">
+                        <div class="results-stat-label">Wrong</div>
+                        <div id="results-wrong" class="results-stat-value"></div>
+                    </div>
+                </div>
+
+                <div class="results-questions-section">
+                    <div class="results-section-header" onclick="toggleResultsQuestions()">
+                        <span style="font-weight: 700; font-size: 1.1rem;">📋 Question Review</span>
+                        <svg id="results-questions-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px; transition: transform 0.3s;">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </div>
+                    <div id="results-questions-list" class="results-questions-list" style="display: none;"></div>
+                </div>
+
+                <button class="btn btn-primary" onclick="goHome()" style="width: 100%; margin-top: 20px;">Back to Home</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="custom-alert" class="custom-alert">
+        <div class="alert-content">
+            <div class="alert-icon" id="alert-icon"></div>
+            <div class="alert-title" id="alert-title"></div>
+            <div class="alert-message" id="alert-message"></div>
+            <div class="alert-buttons" id="alert-buttons"></div>
+        </div>
+    </div>
+
+    <div id="add-question-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Question</h2>
+                <button class="modal-close" onclick="closeAddQuestionModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="new-question-text">Question:</label>
+                    <textarea id="new-question-text" class="question-textarea" placeholder="Enter your question here..." rows="3"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Options:</label>
+                    <div id="new-options-container" class="options-input-container">
+                        <div class="option-input-card">
+                            <input type="checkbox" class="option-checkbox" onchange="toggleOptionHighlight(this)">
+                            <input type="text" class="option-input-simple" placeholder="Option A">
+                            <button type="button" class="option-delete-btn" onclick="deleteOption(this)" title="Delete option">×</button>
+                        </div>
+                    </div>
+                    <div class="option-input-card add-option-card" onclick="addNewOption()">
+                        <span class="add-option-icon">+</span>
+                        <span>Add Option</span>
+                    </div>
+                </div>
+                
+                <p style="color: #777; font-size: 0.9rem; margin-top: 10px; margin-bottom: 15px;">
+                    Check the boxes next to the correct answer(s)
+                </p>
+                
+                <div class="form-group">
+                    <div class="explanation-toggle" onclick="toggleExplanationField()">
+                        <span id="explanation-toggle-icon">+</span>
+                        <span>Add Explanation (Optional)</span>
+                    </div>
+                    <div id="explanation-field" style="display: none; margin-top: 10px;">
+                        <textarea id="new-explanation-text" class="question-textarea" placeholder="Add an explanation or notes about the correct answer..." rows="3"></textarea>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <div class="explanation-toggle" onclick="toggleMoreInfoField()">
+                        <span id="moreinfo-toggle-icon">+</span>
+                        <span>More Information (Optional)</span>
+                    </div>
+                    <div id="moreinfo-field" style="display: none; margin-top: 10px;">
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; color: #2c3e50; font-weight: 600; margin-bottom: 8px;">Type:</label>
+                            <input type="text" id="new-question-type" class="question-textarea" placeholder="e.g., CMDB, Workflows, Security..." style="height: auto; padding: 10px; resize: none;">
+                        </div>
+                        <div style="display: flex; gap: 20px;">
+                            <label class="settings-checkbox-label" style="margin: 0;">
+                                <input type="checkbox" id="new-question-verified">
+                                <div>
+                                    <strong>Verified</strong>
+                                    <p style="margin: 0; font-size: 0.85rem;">Mark as reviewed/verified</p>
+                                </div>
+                            </label>
+                            <label class="settings-checkbox-label" style="margin: 0;">
+                                <input type="checkbox" id="new-question-deprecated">
+                                <div>
+                                    <strong>Deprecated</strong>
+                                    <p style="margin: 0; font-size: 0.85rem;">Mark as outdated</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeAddQuestionModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveNewQuestion()">Add Question</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="question-details-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Question Details</h2>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button class="modal-action-btn edit-btn" onclick="event.stopPropagation(); editQuestionFromDetails()" title="Edit question">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                    </button>
+                    <button class="modal-action-btn delete-btn" onclick="event.stopPropagation(); deleteQuestionFromDetails()" title="Delete question">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                        </svg>
+                    </button>
+                    <button class="modal-close" onclick="closeQuestionDetailsModal()">×</button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label style="font-weight: 700; color: #2c3e50; margin-bottom: 10px;">Question:</label>
+                    <p id="detail-question-text" style="color: #555; line-height: 1.6; margin-bottom: 20px;"></p>
+                </div>
+                
+                <div class="form-group">
+                    <label style="font-weight: 700; color: #2c3e50; margin-bottom: 10px;">Options:</label>
+                    <div id="detail-options-container" style="margin-bottom: 20px;"></div>
+                </div>
+                
+                <div id="detail-notes-section" class="form-group" style="display: none;">
+                    <label style="font-weight: 700; color: #2c3e50; margin-bottom: 10px;">💡 Explanation:</label>
+                    <div id="detail-notes" style="background: #f8f9fa; padding: 15px; border-radius: 8px; color: #555; line-height: 1.6;"></div>
+                </div>
+                
+                <div id="detail-more-info-section" class="form-group" style="display: none;">
+                    <label style="font-weight: 700; color: #2c3e50; margin-bottom: 10px;">ℹ️ More Information:</label>
+                    <div id="detail-more-info"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label style="font-weight: 700; color: #2c3e50; margin-bottom: 10px;">📊 Statistics:</label>
+                    <div style="margin-bottom: 15px;">
+                        <select id="stats-mode-filter" onchange="updateQuestionDetailsStats()" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1rem;">
+                            <option value="all">All Modes</option>
+                            <option value="zen">Zen Mode</option>
+                            <option value="exam">Exam Mode</option>
+                            <option value="examOfficial">Official Exam Mode</option>
+                        </select>
+                    </div>
+                    <div id="detail-stats-container" class="stats-detail-grid"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="closeQuestionDetailsModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="excel-formatting-modal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2>📋 Excel Formatting Rules</h2>
+                <button class="modal-close" onclick="closeExcelFormattingGuide()">×</button>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <div style="margin-bottom: 25px;">
+                    <h3 style="color: #667eea; font-size: 1.2rem; margin-bottom: 10px;">✅ Required Columns</h3>
+                    <p style="color: #555; line-height: 1.6; margin-bottom: 15px;">
+                        Your Excel file must have these two columns in the first row (header):
+                    </p>
+                    
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #667eea; margin-bottom: 10px;">
+                        <strong style="color: #2c3e50; display: block; margin-bottom: 5px;">Question</strong>
+                        <p style="color: #555; margin: 0; font-size: 0.9rem;">
+                            Contains the question text followed by answer options on new lines.
+                        </p>
+                    </div>
+                    
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #667eea;">
+                        <strong style="color: #2c3e50; display: block; margin-bottom: 5px;">Answer</strong>
+                        <p style="color: #555; margin: 0; font-size: 0.9rem;">
+                            Contains the correct answer letter(s) (A, B, C, D, etc.).
+                        </p>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 25px;">
+                    <h3 style="color: #667eea; font-size: 1.2rem; margin-bottom: 10px;">📝 Question Format</h3>
+                    <p style="color: #555; line-height: 1.6; margin-bottom: 15px;">
+                        Each question cell should contain:
+                    </p>
+                    
+                    <div style="background: #fff; padding: 15px; border-radius: 8px; border: 2px solid #e0e0e0; margin-bottom: 15px;">
+                        <code style="display: block; background: #2c3e50; color: #fff; padding: 15px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 0.85rem; line-height: 1.6; white-space: pre-wrap;">What is ServiceNow?
+A. A cloud platform for IT service management
+B. A database management system
+C. A programming language
+D. An operating system</code>
+                    </div>
+                    
+                    <div style="background: #fff3cd; padding: 12px; border-radius: 6px; border-left: 4px solid #ffc107; margin-bottom: 10px;">
+                        <strong style="color: #856404;">⚠️ Important:</strong>
+                        <ul style="margin: 8px 0 0 20px; color: #856404; font-size: 0.9rem;">
+                            <li>Question text comes first</li>
+                            <li>Each option starts with a letter (A, B, C, etc.) followed by a period</li>
+                            <li>Options must be on separate lines (use Alt+Enter in Excel)</li>
+                            <li>At least 2 options required</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 25px;">
+                    <h3 style="color: #667eea; font-size: 1.2rem; margin-bottom: 10px;">✓ Answer Format</h3>
+                    <p style="color: #555; line-height: 1.6; margin-bottom: 15px;">
+                        The Answer column should contain the correct letter(s):
+                    </p>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                        <div style="background: #d4edda; padding: 12px; border-radius: 6px; border: 2px solid #28a745;">
+                            <strong style="color: #155724; display: block; margin-bottom: 5px;">Single Answer</strong>
+                            <code style="background: #fff; padding: 4px 8px; border-radius: 4px; color: #155724;">A</code>
+                        </div>
+                        <div style="background: #d4edda; padding: 12px; border-radius: 6px; border: 2px solid #28a745;">
+                            <strong style="color: #155724; display: block; margin-bottom: 5px;">Multiple Answers</strong>
+                            <code style="background: #fff; padding: 4px 8px; border-radius: 4px; color: #155724;">A
+B</code>
+                        </div>
+                    </div>
+                    
+                    <p style="color: #777; font-size: 0.85rem; margin: 0;">
+                        💡 For multiple correct answers, put each letter on a new line (Alt+Enter in Excel)
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 25px;">
+                    <h3 style="color: #27ae60; font-size: 1.2rem; margin-bottom: 10px;">🎁 Optional Columns</h3>
+                    <p style="color: #555; line-height: 1.6; margin-bottom: 15px;">
+                        Add these columns for extra features:
+                    </p>
+                    
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #27ae60; margin-bottom: 10px;">
+                        <strong style="color: #2c3e50; display: block; margin-bottom: 5px;">Verified</strong>
+                        <p style="color: #555; margin: 0 0 8px 0; font-size: 0.9rem;">
+                            Mark questions as verified/reviewed. Values: <code style="background: #fff; padding: 2px 6px; border-radius: 3px;">true</code>, <code style="background: #fff; padding: 2px 6px; border-radius: 3px;">false</code>, <code style="background: #fff; padding: 2px 6px; border-radius: 3px;">1</code>, <code style="background: #fff; padding: 2px 6px; border-radius: 3px;">0</code>
+                        </p>
+                        <span style="display: inline-flex; align-items: center; gap: 5px; background: #27ae60; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                            </svg>
+                            Verified
+                        </span>
+                    </div>
+                    
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #27ae60; margin-bottom: 10px;">
+                        <strong style="color: #2c3e50; display: block; margin-bottom: 5px;">Deprecated</strong>
+                        <p style="color: #555; margin: 0 0 8px 0; font-size: 0.9rem;">
+                            Mark outdated questions. Values: <code style="background: #fff; padding: 2px 6px; border-radius: 3px;">true</code>, <code style="background: #fff; padding: 2px 6px; border-radius: 3px;">false</code>, <code style="background: #fff; padding: 2px 6px; border-radius: 3px;">1</code>, <code style="background: #fff; padding: 2px 6px; border-radius: 3px;">0</code>
+                        </p>
+                        <span style="display: inline-flex; align-items: center; gap: 5px; background: #e74c3c; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                <line x1="12" y1="9" x2="12" y2="13"></line>
+                                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                            </svg>
+                            Deprecated
+                        </span>
+                    </div>
+                    
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #27ae60;">
+                        <strong style="color: #2c3e50; display: block; margin-bottom: 5px;">Type</strong>
+                        <p style="color: #555; margin: 0; font-size: 0.9rem;">
+                            Categorize questions (e.g., "CMDB", "Workflows", "Security"). Any text value.
+                        </p>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 25px;">
+                    <h3 style="color: #667eea; font-size: 1.2rem; margin-bottom: 10px;">📊 Example Excel Structure</h3>
+                    
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; background: white; border: 2px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                            <thead>
+                                <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                                    <th style="padding: 10px; text-align: left; border-right: 1px solid rgba(255,255,255,0.2);">Question</th>
+                                    <th style="padding: 10px; text-align: left; border-right: 1px solid rgba(255,255,255,0.2);">Answer</th>
+                                    <th style="padding: 10px; text-align: left; border-right: 1px solid rgba(255,255,255,0.2);">Verified</th>
+                                    <th style="padding: 10px; text-align: left; border-right: 1px solid rgba(255,255,255,0.2);">Type</th>
+                                    <th style="padding: 10px; text-align: left;">Deprecated</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr style="border-bottom: 1px solid #e0e0e0;">
+                                    <td style="padding: 10px; border-right: 1px solid #e0e0e0; vertical-align: top;">What is CMDB?<br>A. Configuration...<br>B. Customer...</td>
+                                    <td style="padding: 10px; border-right: 1px solid #e0e0e0; vertical-align: top;">A</td>
+                                    <td style="padding: 10px; border-right: 1px solid #e0e0e0; vertical-align: top;">true</td>
+                                    <td style="padding: 10px; border-right: 1px solid #e0e0e0; vertical-align: top;">CMDB</td>
+                                    <td style="padding: 10px; vertical-align: top;">false</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px; border-right: 1px solid #e0e0e0; vertical-align: top;">Select all valid...<br>A. Option 1<br>B. Option 2<br>C. Option 3</td>
+                                    <td style="padding: 10px; border-right: 1px solid #e0e0e0; vertical-align: top;">A<br>C</td>
+                                    <td style="padding: 10px; border-right: 1px solid #e0e0e0; vertical-align: top;">false</td>
+                                    <td style="padding: 10px; border-right: 1px solid #e0e0e0; vertical-align: top;">Security</td>
+                                    <td style="padding: 10px; vertical-align: top;">true</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div style="background: #e8eaf6; padding: 20px; border-radius: 10px; border: 2px solid #667eea;">
+                    <h3 style="color: #667eea; font-size: 1.1rem; margin-bottom: 12px;">💡 Pro Tips</h3>
+                    <ul style="margin: 0; padding-left: 20px; color: #2c3e50; line-height: 1.8;">
+                        <li>Use <strong>Alt+Enter</strong> in Excel to create line breaks within a cell</li>
+                        <li>Column names are case-insensitive (Question = question = QUESTION)</li>
+                        <li>Empty rows are automatically skipped</li>
+                        <li>Duplicate questions are detected and skipped in Insert mode</li>
+                        <li>Save as <strong>.xlsx</strong> or <strong>.xls</strong> format</li>
+                        <li>You can add URLs in questions - they become clickable links</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="closeExcelFormattingGuide()">Got it!</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="flashcards.js?v=20260306163451"></script>
+    <script src="app.js?v=20260306163451"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registered:', registration);
+                    })
+                    .catch(error => {
+                        console.log('ServiceWorker registration failed:', error);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
