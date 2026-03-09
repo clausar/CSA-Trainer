@@ -1,16 +1,15 @@
 Alpha 2.1
 
 Changelog:
-- NEW: Dark Mode! Toggle in Settings → Appearance
-- Beautiful dark theme with purple/blue gradients
-- Preference saved automatically
-- All screens and modals support dark mode
-- Smooth toggle animation
+- Added Zen Deck position in question details
+- Shows current position in the spaced repetition queue (e.g., "5 of 120")
+- Helps track which questions are coming up soon vs later
+- Displayed in More Information section with zen emoji 🧘
 
 Previous versions:
-- Alpha 2.0: Changed Service Worker caching strategy
+- Alpha 2.0: Changed Service Worker caching strategy (never cache HTML/CSS/JS)
 - Alpha 1.9: Updated cache busters to force CSS reload
-- Alpha 1.8: Improved mobile container width
+- Alpha 1.8: Improved mobile container width for better space utilization
 - Alpha 1.7: Reverted to centered container layout
-- Alpha 1.6: Added number key shortcuts (1-9)
+- Alpha 1.6: Added number key shortcuts (1-9) to select options
 - Alpha 1.5: Added keyboard support for Enter key

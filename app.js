@@ -89,8 +89,7 @@ let questionStats = {};
 let isOfficialExam = false;
 let appSettings = {
     includeDeprecated: true,
-    verifiedOnly: false,
-    darkMode: false
+    verifiedOnly: false
 };
 let sessionStartTime = 0;
 let sessionResults = [];
@@ -1477,11 +1476,21 @@ function showQuestionDetails(questionId) {
     const hasVerified = question.verified === true;
     const hasDeprecated = question.deprecated === true;
     
-    if (hasType || hasVerified || hasDeprecated) {
+    // Check zen deck position
+    const zenPosition = zenDeck.indexOf(question.id);
+    const hasZenPosition = zenPosition !== -1;
+    
+    if (hasType || hasVerified || hasDeprecated || hasZenPosition) {
         let infoHTML = '';
         
         if (hasType) {
             infoHTML += `<div class="info-type-text"><strong>Type:</strong> ${question.type}</div>`;
+        }
+        
+        if (hasZenPosition) {
+            const totalInDeck = zenDeck.length;
+            const positionDisplay = zenPosition + 1; // Convert to 1-based
+            infoHTML += `<div class="info-type-text" style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-left: 4px solid #667eea;"><strong>🧘 Zen Deck Position:</strong> ${positionDisplay} of ${totalInDeck}</div>`;
         }
         
         if (hasVerified || hasDeprecated) {
@@ -1806,8 +1815,7 @@ function loadSettings() {
         console.error('Error loading settings:', e);
         appSettings = {
             includeDeprecated: true,
-            verifiedOnly: false,
-            darkMode: false
+            verifiedOnly: false
         };
     }
     
@@ -1822,29 +1830,7 @@ function loadSettings() {
         verifiedOnlyEl.checked = appSettings.verifiedOnly;
     }
     
-    // Apply dark mode
-    if (appSettings.darkMode) {
-        document.body.classList.add('dark-mode');
-        const toggle = document.getElementById('dark-mode-toggle');
-        if (toggle) {
-            toggle.classList.add('active');
-        }
-    }
-    
     console.log('Final settings:', appSettings);
-}
-
-function toggleDarkMode() {
-    appSettings.darkMode = !appSettings.darkMode;
-    document.body.classList.toggle('dark-mode');
-    document.getElementById('dark-mode-toggle').classList.toggle('active');
-    
-    try {
-        localStorage.setItem('csa_app_settings', JSON.stringify(appSettings));
-        console.log('Dark mode toggled:', appSettings.darkMode);
-    } catch (e) {
-        console.error('Error saving dark mode setting:', e);
-    }
 }
 
 function getFilteredFlashcards() {
