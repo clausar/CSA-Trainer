@@ -1,12 +1,14 @@
-Alpha 2.1
+Alpha 2.2
 
 Changelog:
-- Added Zen Deck position in question details
-- Shows current position in the spaced repetition queue (e.g., "5 of 120")
-- Helps track which questions are coming up soon vs later
-- Displayed in More Information section with zen emoji 🧘
+- Fixed Official CSA Exam Settings checkbox - now activates with single click anywhere on card
+- Improved results screen layout - back arrow overlays content without forcing extra space
+- Reorganized domains modal - Random Mix moved to top, Total percentage at bottom
+- Fixed percentage total calculation to work correctly with official domains
+- Added spacing between Random Mix and domain list for better visual separation
 
 Previous versions:
+- Alpha 2.1: Added Zen Deck position in question details
 - Alpha 2.0: Changed Service Worker caching strategy (never cache HTML/CSS/JS)
 - Alpha 1.9: Updated cache busters to force CSS reload
 - Alpha 1.8: Improved mobile container width for better space utilization
