@@ -100,11 +100,126 @@ loadQuestionStats();
 loadSettings();
 loadZenDeck();
 
+// Restore screen after a short delay to ensure DOM is ready
+setTimeout(() => {
+    restoreScreen();
+    
+    // Hide loader and show app after everything is ready
+    setTimeout(() => {
+        const loader = document.getElementById('app-loader');
+        const container = document.querySelector('.container');
+        
+        container.classList.add('ready');
+        loader.classList.add('hidden');
+        
+        // Remove loader from DOM after animation
+        setTimeout(() => {
+            loader.remove();
+        }, 300);
+    }, 150); // Extra delay to ensure modal is opened if needed
+}, 50);
+
+// Save current screen state
+function saveCurrentScreen() {
+    const activeScreen = document.querySelector('.screen.active');
+    if (activeScreen) {
+        localStorage.setItem('csa_current_screen', activeScreen.id);
+    }
+    
+    // Save active modal if any
+    const activeModal = document.querySelector('.modal.active');
+    if (activeModal) {
+        localStorage.setItem('csa_current_modal', activeModal.id);
+        
+        // If it's the question details modal, save the question ID
+        if (activeModal.id === 'question-details-modal' && currentDetailQuestionId) {
+            localStorage.setItem('csa_current_question_id', currentDetailQuestionId);
+        }
+    } else {
+        localStorage.removeItem('csa_current_modal');
+        localStorage.removeItem('csa_current_question_id');
+    }
+}
+
+// Restore screen state on page load
+function restoreScreen() {
+    const savedScreen = localStorage.getItem('csa_current_screen');
+    const savedModal = localStorage.getItem('csa_current_modal');
+    const savedQuestionId = localStorage.getItem('csa_current_question_id');
+    
+    // Don't restore flashcard-screen (exam/zen mode) - always go to home
+    if (savedScreen === 'flashcard-screen') {
+        showScreen('home-screen');
+        return;
+    }
+    
+    if (savedScreen) {
+        const screenElement = document.getElementById(savedScreen);
+        
+        // Check if the screen still exists
+        if (screenElement) {
+            showScreen(savedScreen);
+            
+            // Special handling for database screen - reload the list
+            if (savedScreen === 'database-screen') {
+                showDatabase();
+                
+                // If there was a question details modal open, restore it
+                if (savedModal === 'question-details-modal' && savedQuestionId) {
+                    // Check if the question still exists
+                    const question = flashcards.find(q => q.id === savedQuestionId);
+                    if (question) {
+                        setTimeout(() => {
+                            showQuestionDetails(savedQuestionId);
+                        }, 100);
+                    }
+                }
+                // If add question modal was open, restore it
+                else if (savedModal === 'add-question-modal') {
+                    setTimeout(() => {
+                        document.getElementById('add-question-modal').classList.add('active');
+                    }, 100);
+                }
+            }
+            // Special handling for settings screen - update stats
+            else if (savedScreen === 'settings-screen') {
+                updateSettingsStats();
+                
+                // If add question modal was open from settings, restore it
+                if (savedModal === 'add-question-modal') {
+                    setTimeout(() => {
+                        document.getElementById('add-question-modal').classList.add('active');
+                    }, 100);
+                }
+            }
+        } else {
+            // Screen doesn't exist, try to find parent screen
+            // Map of child screens to their parent screens
+            const screenHierarchy = {
+                'exam-config-screen': 'home-screen',
+                'flashcard-screen': 'home-screen',
+                'results-screen': 'home-screen',
+                'settings-screen': 'home-screen',
+                'database-screen': 'home-screen'
+            };
+            
+            const parentScreen = screenHierarchy[savedScreen];
+            if (parentScreen && document.getElementById(parentScreen)) {
+                showScreen(parentScreen);
+            } else {
+                // Fallback to home screen
+                showScreen('home-screen');
+            }
+        }
+    }
+}
+
 function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(screen => {
         screen.classList.remove('active');
     });
     document.getElementById(screenId).classList.add('active');
+    saveCurrentScreen();
 }
 
 function showExamConfig() {
@@ -112,12 +227,19 @@ function showExamConfig() {
 }
 
 function toggleOfficialSettings() {
-    const isOfficial = document.getElementById('official-settings').checked;
+    const checkbox = document.getElementById('official-settings');
+    const card = document.getElementById('official-settings-card');
+    
+    // Toggle checkbox state
+    checkbox.checked = !checkbox.checked;
+    const isOfficial = checkbox.checked;
+    
     const timeInput = document.getElementById('exam-time');
     const questionsInput = document.getElementById('exam-questions');
     const passInput = document.getElementById('exam-pass');
     
     if (isOfficial) {
+        card.classList.add('active');
         timeInput.value = 90;
         questionsInput.value = 60;
         passInput.value = 70;
@@ -126,10 +248,209 @@ function toggleOfficialSettings() {
         questionsInput.disabled = true;
         passInput.disabled = true;
     } else {
+        card.classList.remove('active');
         timeInput.disabled = false;
         questionsInput.disabled = false;
         passInput.disabled = false;
     }
+}
+
+function toggleDomainsFilter() {
+    const card = document.getElementById('domains-card');
+    card.classList.toggle('active');
+    
+    // Open domains modal
+    openDomainsModal();
+}
+
+let domainConfig = {
+    random: true,
+    domains: {}
+};
+
+const officialDomainDistribution = {
+    'Platform Overview and Navigation': 7,
+    'Instance Configuration': 10,
+    'Configuring Applications for Collaboration': 20,
+    'Self Service & Automation': 20,
+    'Database Management and Platform Security': 30,
+    'Data Migration and Integration': 13
+};
+
+function openDomainsModal() {
+    const modal = document.getElementById('domains-modal');
+    const domainsList = document.getElementById('domains-list');
+    const isOfficial = document.getElementById('official-settings').checked;
+    
+    // Always use the 6 official domains
+    const officialDomains = [
+        'Platform Overview and Navigation',
+        'Instance Configuration',
+        'Configuring Applications for Collaboration',
+        'Self Service & Automation',
+        'Database Management and Platform Security',
+        'Data Migration and Integration'
+    ];
+    
+    // If official settings, use official distribution
+    if (isOfficial) {
+        domainConfig.random = false;
+        domainConfig.domains = {};
+        
+        officialDomains.forEach(cat => {
+            domainConfig.domains[cat] = {
+                enabled: true,
+                percentage: officialDomainDistribution[cat] || 0
+            };
+        });
+    }
+    
+    // Build domains list with all 6 official domains
+    domainsList.innerHTML = officialDomains.map(cat => {
+        const isEnabled = domainConfig.domains[cat]?.enabled || false;
+        const percentage = domainConfig.domains[cat]?.percentage || 0;
+        
+        // Count how many questions exist for this domain
+        const questionsInDomain = flashcards.filter(q => q.type === cat).length;
+        
+        return `
+        <div class="domain-item ${isOfficial ? 'disabled' : ''}" id="cat-${cat.replace(/\s+/g, '-')}">
+            <label>
+                <input type="checkbox" 
+                       id="check-${cat.replace(/\s+/g, '-')}" 
+                       onchange="toggleDomain('${cat}')"
+                       ${isEnabled ? 'checked' : ''}
+                       ${isOfficial ? 'disabled' : ''}>
+                <span class="domain-name">${cat} <span style="color: #95a5a6; font-size: 0.85rem;">(${questionsInDomain} questions)</span></span>
+            </label>
+            <div class="domain-percentage">
+                <label>Percentage:</label>
+                <input type="number" 
+                       id="percent-${cat.replace(/\s+/g, '-')}" 
+                       min="0" 
+                       max="100" 
+                       value="${percentage}"
+                       onchange="updatePercentageTotal()"
+                       ${!isEnabled || isOfficial ? 'disabled' : ''}>
+                <span>%</span>
+            </div>
+        </div>
+    `;
+    }).join('');
+    
+    // Set random checkbox
+    const randomCheckbox = document.getElementById('random-domains');
+    randomCheckbox.checked = domainConfig.random;
+    randomCheckbox.disabled = isOfficial;
+    
+    // Update UI based on random mode or official mode
+    if (domainConfig.random || isOfficial) {
+        domainsList.style.opacity = '0.5';
+        domainsList.style.pointerEvents = 'none';
+    } else {
+        domainsList.style.opacity = '1';
+        domainsList.style.pointerEvents = 'auto';
+    }
+    
+    // Add official badge if official settings
+    if (isOfficial) {
+        const modalHeader = modal.querySelector('.modal-header h2');
+        if (!modalHeader.querySelector('.official-badge')) {
+            modalHeader.innerHTML = '📚 Domain Distribution <span class="official-badge">Official CSA</span>';
+        }
+    }
+    
+    updatePercentageTotal();
+    modal.classList.add('active');
+    saveCurrentScreen();
+}
+
+function closeDomainsModal() {
+    document.getElementById('domains-modal').classList.remove('active');
+    saveCurrentScreen();
+}
+
+function toggleDomain(domain) {
+    const checkbox = document.getElementById(`check-${domain.replace(/\s+/g, '-')}`);
+    const percentInput = document.getElementById(`percent-${domain.replace(/\s+/g, '-')}`);
+    
+    if (!domainConfig.domains[domain]) {
+        domainConfig.domains[domain] = { enabled: false, percentage: 0 };
+    }
+    
+    domainConfig.domains[domain].enabled = checkbox.checked;
+    percentInput.disabled = !checkbox.checked;
+    
+    if (!checkbox.checked) {
+        percentInput.value = 0;
+        domainConfig.domains[domain].percentage = 0;
+    }
+    
+    updatePercentageTotal();
+}
+
+function toggleRandomDomains() {
+    const randomCheckbox = document.getElementById('random-domains');
+    const domainsList = document.getElementById('domains-list');
+    
+    domainConfig.random = randomCheckbox.checked;
+    
+    if (domainConfig.random) {
+        domainsList.style.opacity = '0.5';
+        domainsList.style.pointerEvents = 'none';
+    } else {
+        domainsList.style.opacity = '1';
+        domainsList.style.pointerEvents = 'auto';
+    }
+}
+
+function updatePercentageTotal() {
+    // Use the 6 official domains
+    const officialDomains = [
+        'Platform Overview and Navigation',
+        'Instance Configuration',
+        'Configuring Applications for Collaboration',
+        'Self Service & Automation',
+        'Database Management and Platform Security',
+        'Data Migration and Integration'
+    ];
+    
+    let total = 0;
+    
+    officialDomains.forEach(cat => {
+        const percentInput = document.getElementById(`percent-${cat.replace(/\s+/g, '-')}`);
+        if (percentInput && !percentInput.disabled) {
+            const value = parseInt(percentInput.value) || 0;
+            total += value;
+            
+            if (!domainConfig.domains[cat]) {
+                domainConfig.domains[cat] = { enabled: false, percentage: 0 };
+            }
+            domainConfig.domains[cat].percentage = value;
+        }
+    });
+    
+    document.getElementById('total-percentage').textContent = total;
+    
+    const warning = document.getElementById('percentage-warning');
+    if (!domainConfig.random && total !== 100 && total > 0) {
+        warning.style.display = 'block';
+    } else {
+        warning.style.display = 'none';
+    }
+}
+
+function saveDomainsConfig() {
+    if (!domainConfig.random) {
+        const total = parseInt(document.getElementById('total-percentage').textContent);
+        if (total !== 100) {
+            showCustomAlert('Invalid Configuration', 'Total percentage must equal 100%', '⚠️');
+            return;
+        }
+    }
+    
+    closeDomainsModal();
+    console.log('Domain config saved:', domainConfig);
 }
 
 function startExamWithConfig() {
@@ -148,20 +469,23 @@ function startExamWithConfig() {
 
 function startTimer() {
     timeRemaining = examConfig.timeLimit * 60;
+    isPaused = false;
     updateTimerDisplay();
     
     timerInterval = setInterval(() => {
-        timeRemaining--;
-        updateTimerDisplay();
-        
-        if (timeRemaining <= 60) {
-            document.getElementById('timer-display').classList.add('warning');
-        }
-        
-        if (timeRemaining <= 0) {
-            clearInterval(timerInterval);
-            alert('Time is up!');
-            showResults();
+        if (!isPaused) {
+            timeRemaining--;
+            updateTimerDisplay();
+            
+            if (timeRemaining <= 600) { // 10 minutes = 600 seconds
+                document.getElementById('timer-display').classList.add('warning');
+            }
+            
+            if (timeRemaining <= 0) {
+                clearInterval(timerInterval);
+                alert('Time is up!');
+                showResults();
+            }
         }
     }, 1000);
 }
@@ -170,7 +494,64 @@ function updateTimerDisplay() {
     const minutes = Math.floor(timeRemaining / 60);
     const seconds = timeRemaining % 60;
     const display = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    document.getElementById('timer-display').textContent = display;
+    const timerDisplay = document.getElementById('timer-display');
+    timerDisplay.textContent = display;
+    
+    // Add zen-mode class if in zen mode
+    if (currentMode === 'zen') {
+        timerDisplay.classList.add('zen-mode');
+    } else {
+        timerDisplay.classList.remove('zen-mode');
+    }
+}
+
+let isPaused = false;
+
+function togglePauseExam() {
+    console.log('togglePauseExam called, currentMode:', currentMode, 'isPaused:', isPaused);
+    
+    // Only allow pause in exam mode
+    if (currentMode !== 'exam') {
+        console.log('Not in exam mode, returning');
+        return;
+    }
+    
+    isPaused = !isPaused;
+    console.log('isPaused toggled to:', isPaused);
+    
+    const timerDisplay = document.getElementById('timer-display');
+    
+    if (isPaused) {
+        timerDisplay.classList.add('paused');
+        // Show pause overlay
+        showPauseOverlay();
+    } else {
+        timerDisplay.classList.remove('paused');
+        // Hide pause overlay
+        hidePauseOverlay();
+    }
+}
+
+function showPauseOverlay() {
+    const overlay = document.createElement('div');
+    overlay.id = 'pause-overlay';
+    overlay.className = 'pause-overlay';
+    overlay.innerHTML = `
+        <div class="pause-content">
+            <div class="pause-icon">⏸️</div>
+            <h2>Exam Paused</h2>
+            <p>The timer is paused. Click the button below to resume.</p>
+            <button class="btn btn-primary" onclick="togglePauseExam()">Resume Exam</button>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+function hidePauseOverlay() {
+    const overlay = document.getElementById('pause-overlay');
+    if (overlay) {
+        overlay.remove();
+    }
 }
 
 function stopTimer() {
@@ -221,14 +602,28 @@ function startMode(mode) {
         // Build session cards from zen deck order
         sessionCards = zenDeck.map(id => availableCards.find(card => card.id === id)).filter(card => card !== undefined);
         
-        document.getElementById('timer-display').textContent = 'ZEN';
-        document.getElementById('timer-display').classList.add('zen-mode');
+        const timerDisplay = document.getElementById('timer-display');
+        timerDisplay.textContent = 'ZEN';
+        timerDisplay.classList.add('zen-mode');
+        timerDisplay.style.cursor = 'pointer';
+        timerDisplay.onclick = showZenModeInfo;
     } else if (mode === 'exam') {
         const numQuestions = Math.min(examConfig.numQuestions, availableCards.length);
-        sessionCards = [...availableCards]
-            .sort(() => Math.random() - 0.5)
-            .slice(0, numQuestions);
-        document.getElementById('timer-display').classList.remove('zen-mode');
+        
+        // Check if we should use domain distribution
+        if (!domainConfig.random && Object.keys(domainConfig.domains).length > 0) {
+            sessionCards = selectQuestionsByDomain(availableCards, numQuestions);
+        } else {
+            // Random selection
+            sessionCards = [...availableCards]
+                .sort(() => Math.random() - 0.5)
+                .slice(0, numQuestions);
+        }
+        
+        const timerDisplay = document.getElementById('timer-display');
+        timerDisplay.classList.remove('zen-mode');
+        timerDisplay.style.cursor = 'default';
+        timerDisplay.onclick = null;
         startTimer();
     }
     
@@ -243,6 +638,55 @@ function validateZenDeck(availableCards) {
     const availableIds = new Set(availableCards.map(card => card.id));
     // Check if all cards in zen deck are still available
     return zenDeck.every(id => availableIds.has(id));
+}
+
+// Select questions based on domain distribution
+function selectQuestionsByDomain(availableCards, totalQuestions) {
+    const selectedCards = [];
+    const remainingCards = [...availableCards];
+    
+    // Get enabled domains with their percentages
+    const enabledDomains = Object.entries(domainConfig.domains)
+        .filter(([domain, config]) => config.enabled && config.percentage > 0);
+    
+    console.log('Selecting questions by domain:', enabledDomains);
+    
+    // For each enabled domain, select the required number of questions
+    for (const [domain, config] of enabledDomains) {
+        const targetCount = Math.round((config.percentage / 100) * totalQuestions);
+        
+        // Get questions from this domain
+        const domainQuestions = remainingCards.filter(card => card.type === domain);
+        
+        // Take as many as we can (up to targetCount)
+        const questionsToTake = Math.min(targetCount, domainQuestions.length);
+        
+        // Randomly select from this domain
+        const shuffled = [...domainQuestions].sort(() => Math.random() - 0.5);
+        const selected = shuffled.slice(0, questionsToTake);
+        
+        selectedCards.push(...selected);
+        
+        // Remove selected questions from remaining pool
+        selected.forEach(card => {
+            const index = remainingCards.findIndex(c => c.id === card.id);
+            if (index > -1) remainingCards.splice(index, 1);
+        });
+        
+        console.log(`Domain "${domain}": wanted ${targetCount}, got ${questionsToTake}`);
+    }
+    
+    // If we don't have enough questions yet, fill with random questions from remaining pool
+    const stillNeeded = totalQuestions - selectedCards.length;
+    if (stillNeeded > 0 && remainingCards.length > 0) {
+        const shuffled = [...remainingCards].sort(() => Math.random() - 0.5);
+        const additional = shuffled.slice(0, Math.min(stillNeeded, remainingCards.length));
+        selectedCards.push(...additional);
+        console.log(`Added ${additional.length} random questions to reach target`);
+    }
+    
+    // Final shuffle of all selected questions
+    return selectedCards.sort(() => Math.random() - 0.5);
 }
 
 function loadCard() {
@@ -265,6 +709,22 @@ function loadCard() {
     
     const card = sessionCards[currentCardIndex];
     selectedOptions = [];
+    
+    // Create shuffled options with original indices
+    const shuffledOptions = card.options.map((option, index) => ({
+        text: option,
+        originalIndex: index,
+        isCorrect: card.correctAnswers.includes(index)
+    }));
+    
+    // Shuffle the options array
+    for (let i = shuffledOptions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledOptions[i], shuffledOptions[j]] = [shuffledOptions[j], shuffledOptions[i]];
+    }
+    
+    // Store the shuffled mapping for this card
+    card.shuffledOptions = shuffledOptions;
     
     const numCorrectAnswers = card.correctAnswers.length;
     const selectionText = numCorrectAnswers === 1 
@@ -302,14 +762,14 @@ function loadCard() {
     const optionsContainer = document.getElementById('options-container');
     optionsContainer.innerHTML = '';
     
-    card.options.forEach((option, index) => {
+    shuffledOptions.forEach((option, displayIndex) => {
         const optionDiv = document.createElement('div');
         optionDiv.className = 'option';
         optionDiv.innerHTML = `
-            <div class="option-letter">${String.fromCharCode(65 + index)}</div>
-            <div class="option-text">${linkifyText(option)}</div>
+            <div class="option-letter">${String.fromCharCode(65 + displayIndex)}</div>
+            <div class="option-text">${linkifyText(option.text)}</div>
         `;
-        optionDiv.onclick = () => toggleOption(index, optionDiv);
+        optionDiv.onclick = () => toggleOption(displayIndex, optionDiv);
         optionsContainer.appendChild(optionDiv);
     });
     
@@ -328,11 +788,65 @@ function loadCard() {
         document.getElementById('progress').style.width = progress + '%';
     }
     
+    // Show domain chip if question has a type/domain
+    const domainChip = document.getElementById('question-domain-chip');
+    if (card.type && card.type.trim()) {
+        domainChip.textContent = card.type;
+        domainChip.style.display = 'block';
+    } else {
+        domainChip.style.display = 'none';
+    }
+    
+    // Show context button if question has explanation/context
+    const contextButton = document.getElementById('context-button');
+    const contextCard = document.getElementById('question-context-card');
+    const explanationText = card.explanation || card.notes || '';
+    const parsed = parseExplanation(explanationText);
+    
+    if (parsed.context && parsed.context.trim()) {
+        contextButton.style.display = 'flex';
+        document.getElementById('question-context-text').innerHTML = linkifyText(parsed.context);
+    } else {
+        contextButton.style.display = 'none';
+        contextCard.style.display = 'none';
+    }
+    
+    // Hide context card when loading new question
+    contextCard.style.display = 'none';
+    
     // Reset buttons state
     document.getElementById('submit-answer').style.display = 'block';
     document.getElementById('submit-answer').disabled = true;
     document.getElementById('next-button').style.display = 'none';
 }
+
+// Toggle question context visibility
+function toggleQuestionContext() {
+    const contextCard = document.getElementById('question-context-card');
+    if (contextCard.style.display === 'none') {
+        contextCard.style.display = 'block';
+    } else {
+        contextCard.style.display = 'none';
+    }
+}
+
+function closeQuestionContext() {
+    const contextCard = document.getElementById('question-context-card');
+    contextCard.style.display = 'none';
+}
+
+// Close context card when clicking outside
+document.addEventListener('click', function(event) {
+    const contextCard = document.getElementById('question-context-card');
+    const contextButton = document.getElementById('context-button');
+    
+    if (contextCard && contextButton && 
+        contextCard.style.display === 'block' &&
+        !contextCard.contains(event.target) && 
+        !contextButton.contains(event.target)) {
+        contextCard.style.display = 'none';
+    }
+});
 
 function toggleOption(index, element) {
     const card = sessionCards[currentCardIndex];
@@ -372,8 +886,13 @@ function toggleOption(index, element) {
 
 function submitAnswer() {
     const card = sessionCards[currentCardIndex];
+    
+    // Convert selected display indices to original indices
+    const userOriginalAnswers = selectedOptions.map(displayIndex => 
+        card.shuffledOptions[displayIndex].originalIndex
+    ).sort();
+    
     const correctAnswers = card.correctAnswers.sort();
-    const userAnswers = selectedOptions.sort();
     
     // Validate exact number of selections
     if (selectedOptions.length !== card.correctAnswers.length) {
@@ -388,12 +907,12 @@ function submitAnswer() {
         return;
     }
     
-    const isCorrect = JSON.stringify(correctAnswers) === JSON.stringify(userAnswers);
+    const isCorrect = JSON.stringify(correctAnswers) === JSON.stringify(userOriginalAnswers);
     
     // Save result for this question
     sessionResults.push({
         question: card,
-        userAnswers: [...userAnswers],
+        userAnswers: [...userOriginalAnswers],
         isCorrect: isCorrect
     });
     
@@ -421,12 +940,37 @@ function submitAnswer() {
     } else {
         // Zen mode: show feedback and update deck position
         const options = document.querySelectorAll('.option');
-        options.forEach((option, index) => {
-            option.onclick = null;
-            if (card.correctAnswers.includes(index)) {
+        
+        // Parse explanation to get option explanations
+        const explanationText = card.explanation || card.notes || '';
+        const parsed = parseExplanation(explanationText);
+        
+        options.forEach((option, displayIndex) => {
+            const originalIndex = card.shuffledOptions[displayIndex].originalIndex;
+            const letter = String.fromCharCode(65 + originalIndex);
+            const isCorrectOption = card.shuffledOptions[displayIndex].isCorrect;
+            
+            // Check if there's an explanation for this option
+            let optionExplanation = null;
+            if (card.optionExplanations && card.optionExplanations[letter]) {
+                optionExplanation = card.optionExplanations[letter];
+            } else {
+                optionExplanation = parsed.optionExplanations[letter];
+            }
+            
+            // Mark as correct or wrong
+            if (isCorrectOption) {
                 option.classList.add('correct');
-            } else if (selectedOptions.includes(index)) {
+            } else if (selectedOptions.includes(displayIndex)) {
                 option.classList.add('wrong');
+            }
+            
+            // If there's an explanation, make it clickable
+            if (optionExplanation) {
+                option.style.cursor = 'pointer';
+                option.onclick = () => toggleZenOptionExplanation(displayIndex, option, optionExplanation);
+            } else {
+                option.onclick = null;
             }
         });
         
@@ -436,6 +980,51 @@ function submitAnswer() {
         document.getElementById('submit-answer').style.display = 'none';
         document.getElementById('next-button').style.display = 'block';
     }
+}
+
+// Track currently open zen explanation
+let currentOpenZenExplanation = null;
+
+// Toggle option explanation in zen mode
+function toggleZenOptionExplanation(displayIndex, optionElement, explanationText) {
+    const explanationId = `zen-explanation-${displayIndex}`;
+    let explanationDiv = document.getElementById(explanationId);
+    
+    // If clicking the currently open one, close it
+    if (currentOpenZenExplanation === displayIndex) {
+        if (explanationDiv) {
+            explanationDiv.remove();
+        }
+        optionElement.classList.remove('option-expanded');
+        currentOpenZenExplanation = null;
+        return;
+    }
+    
+    // Close previously open explanation
+    if (currentOpenZenExplanation !== null) {
+        const prevExplanation = document.getElementById(`zen-explanation-${currentOpenZenExplanation}`);
+        if (prevExplanation) {
+            prevExplanation.remove();
+        }
+        const options = document.querySelectorAll('.option');
+        if (options[currentOpenZenExplanation]) {
+            options[currentOpenZenExplanation].classList.remove('option-expanded');
+        }
+    }
+    
+    // Create and show new explanation
+    explanationDiv = document.createElement('div');
+    explanationDiv.id = explanationId;
+    explanationDiv.className = 'zen-option-explanation';
+    explanationDiv.innerHTML = `
+        <div class="zen-explanation-icon">💡</div>
+        <div class="zen-explanation-text">${linkifyText(explanationText)}</div>
+    `;
+    
+    // Insert after the option
+    optionElement.parentNode.insertBefore(explanationDiv, optionElement.nextSibling);
+    optionElement.classList.add('option-expanded');
+    currentOpenZenExplanation = displayIndex;
 }
 
 // Update card position in zen deck based on spaced repetition logic
@@ -464,6 +1053,10 @@ function updateZenDeckPosition(cardId, isCorrect) {
 function nextCard() {
     document.getElementById('submit-answer').style.display = 'block';
     document.getElementById('next-button').style.display = 'none';
+    
+    // Clean up zen explanations
+    currentOpenZenExplanation = null;
+    document.querySelectorAll('.zen-option-explanation').forEach(el => el.remove());
     
     currentCardIndex++;
     loadCard();
@@ -745,6 +1338,13 @@ function showDatabase() {
         return;
     }
     
+    // Update question count
+    const questionCount = document.getElementById('question-count');
+    if (questionCount) {
+        const count = flashcards.length;
+        questionCount.textContent = count === 1 ? '1 question' : `${count} questions`;
+    }
+    
     flashcards.forEach((card, index) => {
         const cardElement = document.createElement('div');
         cardElement.className = 'db-card';
@@ -762,9 +1362,16 @@ function showDatabase() {
             <button class="db-card-delete" onclick="event.stopPropagation(); deleteQuestion('${card.id}')" title="Delete question">×</button>
             <div class="db-card-number">${index + 1}</div>
             <div class="db-card-content">
-                <div class="db-question"><strong>Q:</strong> ${card.question}</div>
-                <div class="db-answer">${optionsHTML}</div>
-                <div style="margin-top: 10px; color: #27ae60; font-weight: 600;">Correct: ${correctLetters}</div>
+                <div class="db-card-header">
+                    <div class="db-question"><strong>Q:</strong> ${card.question}</div>
+                    <svg class="db-card-arrow" id="arrow-${card.id}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" onclick="event.stopPropagation(); toggleCardOptions('${card.id}')">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </div>
+                <div class="db-card-options" id="options-${card.id}" style="display: none;">
+                    <div class="db-answer">${optionsHTML}</div>
+                    <div style="margin-top: 10px; color: #27ae60; font-weight: 600;">Correct: ${correctLetters}</div>
+                </div>
             </div>
         `;
         dbList.appendChild(cardElement);
@@ -776,6 +1383,21 @@ function showDatabase() {
 function closeDatabase() {
     // Helper function to close database screen
     showScreen('home-screen');
+}
+
+function toggleCardOptions(cardId) {
+    const optionsDiv = document.getElementById(`options-${cardId}`);
+    const arrow = document.getElementById(`arrow-${cardId}`);
+    
+    if (!optionsDiv || !arrow) return;
+    
+    if (optionsDiv.style.display === 'none') {
+        optionsDiv.style.display = 'block';
+        arrow.classList.add('rotated');
+    } else {
+        optionsDiv.style.display = 'none';
+        arrow.classList.remove('rotated');
+    }
 }
 
 function deleteQuestion(questionId) {
@@ -819,7 +1441,15 @@ function openAddQuestionModal() {
         <div class="option-input-card">
             <input type="checkbox" class="option-checkbox" onchange="toggleOptionHighlight(this)">
             <input type="text" class="option-input-simple" placeholder="Option A">
-            <button type="button" class="option-delete-btn" onclick="deleteOption(this)" title="Delete option">×</button>
+            <div class="option-controls-zone">
+                <svg class="option-expand-btn" onclick="toggleOptionExplanationInModal(this)" title="Add explanation" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+                <button type="button" class="option-delete-btn" onclick="deleteOption(this)" title="Delete option">×</button>
+            </div>
+            <div class="option-explanation-field" style="display: none;">
+                <textarea class="option-explanation-textarea" placeholder="Explanation for this option (optional)..." rows="2"></textarea>
+            </div>
         </div>
     `;
 }
@@ -864,10 +1494,53 @@ function addNewOption() {
     optionCard.innerHTML = `
         <input type="checkbox" class="option-checkbox" onchange="toggleOptionHighlight(this)">
         <input type="text" class="option-input-simple" placeholder="Option ${letter}">
-        <button type="button" class="option-delete-btn" onclick="deleteOption(this)" title="Delete option">×</button>
+        <div class="option-controls-zone">
+            <svg class="option-expand-btn" onclick="toggleOptionExplanationInModal(this)" title="Add explanation" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+            <button type="button" class="option-delete-btn" onclick="deleteOption(this)" title="Delete option">×</button>
+        </div>
+        <div class="option-explanation-field" style="display: none;">
+            <textarea class="option-explanation-textarea" placeholder="Explanation for this option (optional)..." rows="2"></textarea>
+        </div>
     `;
     container.appendChild(optionCard);
 }
+
+function toggleOptionExplanationInModal(svg) {
+    const card = svg.closest('.option-input-card');
+    const explanationField = card.querySelector('.option-explanation-field');
+    const textarea = explanationField.querySelector('.option-explanation-textarea');
+    const isExpanded = explanationField.style.display !== 'none';
+    
+    if (isExpanded) {
+        explanationField.style.display = 'none';
+        svg.classList.remove('rotated');
+    } else {
+        explanationField.style.display = 'block';
+        svg.classList.add('rotated');
+        autoResizeTextarea(textarea);
+        textarea.focus();
+    }
+}
+
+function autoResizeTextarea(textarea) {
+    if (!textarea) return;
+    
+    // Reset height to auto to get the correct scrollHeight
+    textarea.style.height = 'auto';
+    
+    // Set height to scrollHeight (content height)
+    const newHeight = Math.max(textarea.scrollHeight, 50); // Minimum 50px
+    textarea.style.height = newHeight + 'px';
+}
+
+// Add event listener to auto-resize textareas as user types
+document.addEventListener('input', function(e) {
+    if (e.target.classList.contains('option-explanation-textarea')) {
+        autoResizeTextarea(e.target);
+    }
+});
 
 function toggleOptionHighlight(checkbox) {
     const card = checkbox.closest('.option-input-card');
@@ -914,16 +1587,25 @@ function saveNewQuestion() {
     const optionCards = document.querySelectorAll('#new-options-container .option-input-card');
     const options = [];
     const correctAnswers = [];
+    const optionExplanations = {};
     
     optionCards.forEach((card, index) => {
         const checkbox = card.querySelector('.option-checkbox');
         const input = card.querySelector('.option-input-simple');
+        const explanationTextarea = card.querySelector('.option-explanation-textarea');
         const optionText = input.value.trim();
         
         if (optionText) {
             options.push(optionText);
             if (checkbox.checked) {
                 correctAnswers.push(index);
+            }
+            
+            // Save option explanation if exists
+            const explanationText = explanationTextarea?.value.trim();
+            if (explanationText) {
+                const letter = String.fromCharCode(65 + index);
+                optionExplanations[letter] = explanationText;
             }
         }
     });
@@ -955,7 +1637,8 @@ function saveNewQuestion() {
         correctAnswers: correctAnswers,
         verified: isVerified,
         deprecated: isDeprecated,
-        type: typeText
+        type: typeText,
+        optionExplanations: optionExplanations
     };
     
     // Add explanation if provided
@@ -1077,34 +1760,22 @@ function parseQuestionText(text) {
 }
 
 function parseAnswerText(text) {
-    // Extract correct answers and notes
-    // More flexible pattern to handle different formats
-    const optionPattern = /[\r\n]*\s*([A-Z])\.\s*([^\r\n]*)/g;
-    let matches;
+    // New strict format: only extract answer letters from lines starting with "Letter."
+    // Each line that starts with a capital letter followed by a period is an answer
+    // Everything else is ignored
+    const lines = text.split(/[\r\n]+/);
     const correctLetters = [];
     
-    // Extract all answer letters
-    while ((matches = optionPattern.exec(text)) !== null) {
-        correctLetters.push(matches[1]);
-    }
-    
-    // If no pattern found, try to extract just capital letters
-    if (correctLetters.length === 0) {
-        const letterPattern = /\b([A-Z])\b/g;
-        while ((matches = letterPattern.exec(text)) !== null) {
-            if (!correctLetters.includes(matches[1])) {
-                correctLetters.push(matches[1]);
-            }
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+        // Check if line starts with capital letter followed by period
+        const match = trimmedLine.match(/^([A-Z])\./);
+        if (match) {
+            correctLetters.push(match[1]);
         }
     }
     
-    // Remove all option patterns to get remaining text (notes)
-    let notes = text.replace(/[\r\n]*\s*[A-Z]\.\s*[^\r\n]*/g, '').trim();
-    
-    // Also remove standalone capital letters that were matched
-    notes = notes.replace(/\b[A-Z]\b/g, '').trim();
-    
-    return { correctLetters, notes };
+    return { correctLetters };
 }
 
 async function processImport() {
@@ -1232,11 +1903,11 @@ async function executeImport(mode) {
                 console.log('XLSX library available');
                 
                 const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
+                const workbook = XLSX.read(data, { type: 'array', cellFormula: false, cellHTML: false });
                 console.log('Workbook loaded:', workbook.SheetNames);
                 
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false, defval: '' });
                 console.log('Rows found:', jsonData.length);
                 
                 updateProgress(50, 'Processing questions...');
@@ -1249,17 +1920,35 @@ async function executeImport(mode) {
                 const normalizedHeaders = headers.map(h => h ? h.toString().toLowerCase().trim() : '');
                 console.log('Normalized headers:', normalizedHeaders);
                 
+                // Required columns
+                const idCol = normalizedHeaders.findIndex(h => h === 'id');
                 const questionCol = normalizedHeaders.findIndex(h => h === 'question');
                 const answerCol = normalizedHeaders.findIndex(h => h === 'answer');
+                
+                // Optional columns
+                const explanationCol = normalizedHeaders.findIndex(h => h === 'explanation');
+                const categoryCol = normalizedHeaders.findIndex(h => h === 'category');
                 const verifiedCol = normalizedHeaders.findIndex(h => h === 'verified');
-                const typeCol = normalizedHeaders.findIndex(h => h === 'type');
                 const deprecatedCol = normalizedHeaders.findIndex(h => h === 'deprecated');
                 
-                console.log('Question column:', questionCol, 'Answer column:', answerCol);
-                console.log('Optional columns - Verified:', verifiedCol, 'Type:', typeCol, 'Deprecated:', deprecatedCol);
+                console.log('Required - ID:', idCol, 'Question:', questionCol, 'Answer:', answerCol);
+                console.log('Optional - Explanation:', explanationCol, 'Category:', categoryCol, 'Verified:', verifiedCol, 'Deprecated:', deprecatedCol);
                 
-                if (questionCol === -1 || answerCol === -1) {
-                    showCustomAlert('Invalid Format', 'Excel file must have "Question" and "Answer" columns in the first row.', '❌', [
+                // Validate required columns
+                const missingColumns = [];
+                if (idCol === -1) missingColumns.push('ID');
+                if (questionCol === -1) missingColumns.push('Question');
+                if (answerCol === -1) missingColumns.push('Answer');
+                
+                if (missingColumns.length > 0) {
+                    let errorMessage = `Missing required columns: ${missingColumns.join(', ')}\n\nRequired columns (case insensitive):\n• ID\n• Question\n• Answer`;
+                    
+                    if (missingColumns.includes('ID')) {
+                        errorMessage += '\n\n📘 The ID column is used to identify questions when updating existing ones. Click "Excel Formatting Rules" for more details.';
+                    }
+                    
+                    showCustomAlert('Invalid Format', errorMessage, '❌', [
+                        { text: 'See Format Guide', type: 'btn-secondary', callback: () => { closeImportModal(); setTimeout(() => openExcelFormattingGuide(), 100); } },
                         { text: 'OK', type: 'btn-primary' }
                     ]);
                     closeImportModal();
@@ -1267,16 +1956,62 @@ async function executeImport(mode) {
                 }
                 
                 const newQuestions = [];
+                const seenIds = new Set();
+                const duplicateIds = new Set();
+                const rowsWithMissingIds = [];
+                
+                // Track skipped rows with details
+                const skippedRows = {
+                    missingQuestion: [],
+                    missingAnswer: [],
+                    onlyId: []
+                };
                 
                 // Process each row
                 for (let i = 1; i < jsonData.length; i++) {
                     const row = jsonData[i];
-                    if (!row[questionCol] || !row[answerCol]) {
-                        console.log(`Row ${i + 1}: Empty, skipping`);
+                    const rowId = row[idCol] ? row[idCol].toString().trim() : '';
+                    const hasQuestion = row[questionCol] && row[questionCol].toString().trim();
+                    const hasAnswer = row[answerCol] && row[answerCol].toString().trim();
+                    
+                    // Skip completely empty rows
+                    if (!rowId && !hasQuestion && !hasAnswer) {
+                        console.log(`Row ${i + 1}: Completely empty, skipping`);
+                        continue;
+                    }
+                    
+                    // Track rows with only ID (silently ignored)
+                    if (rowId && !hasQuestion && !hasAnswer) {
+                        skippedRows.onlyId.push(i + 1);
+                        console.log(`Row ${i + 1}: Only ID present, skipping`);
+                        continue;
+                    }
+                    
+                    // Track rows missing question or answer
+                    if (!hasQuestion) {
+                        skippedRows.missingQuestion.push(i + 1);
+                        console.log(`Row ${i + 1}: Missing question, skipping`);
+                        continue;
+                    }
+                    
+                    if (!hasAnswer) {
+                        skippedRows.missingAnswer.push(i + 1);
+                        console.log(`Row ${i + 1}: Missing answer, skipping`);
                         continue;
                     }
                     
                     console.log(`Processing row ${i + 1}...`);
+                    
+                    // Check for missing ID (warning, not error)
+                    if (!rowId) {
+                        rowsWithMissingIds.push(i + 1);
+                    } else {
+                        // Check for duplicate IDs
+                        if (seenIds.has(rowId)) {
+                            duplicateIds.add(rowId);
+                        }
+                        seenIds.add(rowId);
+                    }
                     
                     const questionData = parseQuestionText(row[questionCol].toString());
                     const answerData = parseAnswerText(row[answerCol].toString());
@@ -1299,18 +2034,39 @@ async function executeImport(mode) {
                         continue;
                     }
                     
+                    // Use provided ID or generate new one
+                    const questionId = rowId || generateQuestionId();
+                    
                     const questionObj = {
-                        id: generateQuestionId(),
+                        id: questionId,
                         question: questionData.question,
                         options: questionData.options,
-                        correctAnswers: correctAnswers
+                        correctAnswers: correctAnswers,
+                        optionExplanations: {} // Store explanations for each option
                     };
                     
-                    if (answerData.notes) {
-                        questionObj.notes = answerData.notes;
+                    // Add explanation if provided and parse it
+                    if (explanationCol !== -1 && row[explanationCol] !== undefined && row[explanationCol] !== null && row[explanationCol] !== '') {
+                        const explanationText = row[explanationCol].toString().trim();
+                        const parsed = parseExplanation(explanationText);
+                        
+                        // Store context as explanation
+                        if (parsed.context) {
+                            questionObj.explanation = parsed.context;
+                        }
+                        
+                        // Store option explanations
+                        questionObj.optionExplanations = parsed.optionExplanations;
                     }
                     
-                    // Add optional fields - default to false/empty if not present
+                    // Add category (renamed from type)
+                    if (categoryCol !== -1 && row[categoryCol] !== undefined && row[categoryCol] !== null && row[categoryCol] !== '') {
+                        questionObj.type = row[categoryCol].toString().trim();
+                    } else {
+                        questionObj.type = '';
+                    }
+                    
+                    // Add verified flag
                     if (verifiedCol !== -1 && row[verifiedCol] !== undefined && row[verifiedCol] !== null && row[verifiedCol] !== '') {
                         const verifiedValue = row[verifiedCol].toString().toLowerCase().trim();
                         questionObj.verified = verifiedValue === 'true' || verifiedValue === '1' || verifiedValue === 'yes' || verifiedValue === 'verdadeiro' || verifiedValue === 'sim';
@@ -1318,12 +2074,7 @@ async function executeImport(mode) {
                         questionObj.verified = false;
                     }
                     
-                    if (typeCol !== -1 && row[typeCol] !== undefined && row[typeCol] !== null && row[typeCol] !== '') {
-                        questionObj.type = row[typeCol].toString().trim();
-                    } else {
-                        questionObj.type = '';
-                    }
-                    
+                    // Add deprecated flag
                     if (deprecatedCol !== -1 && row[deprecatedCol] !== undefined && row[deprecatedCol] !== null && row[deprecatedCol] !== '') {
                         const deprecatedValue = row[deprecatedCol].toString().toLowerCase().trim();
                         questionObj.deprecated = deprecatedValue === 'true' || deprecatedValue === '1' || deprecatedValue === 'yes' || deprecatedValue === 'verdadeiro' || deprecatedValue === 'sim';
@@ -1338,6 +2089,19 @@ async function executeImport(mode) {
                 
                 console.log('Total questions processed:', newQuestions.length);
                 
+                // Check for duplicate IDs - this is a blocking error
+                if (duplicateIds.size > 0) {
+                    const duplicateList = Array.from(duplicateIds).join(', ');
+                    showCustomAlert(
+                        'Duplicate IDs Found',
+                        `The following IDs appear more than once in your Excel file:\n\n${duplicateList}\n\nEach question must have a unique ID. Please fix these duplicates and try again.`,
+                        '❌',
+                        [{ text: 'OK', type: 'btn-primary' }]
+                    );
+                    closeImportModal();
+                    return;
+                }
+                
                 if (newQuestions.length === 0) {
                     showCustomAlert('No Questions Found', 'No valid questions found in the Excel file. Please check the format.', '⚠️', [
                         { text: 'OK', type: 'btn-primary' }
@@ -1348,6 +2112,20 @@ async function executeImport(mode) {
                 
                 updateProgress(85, 'Finalizing...');
                 
+                // Build skipped rows summary
+                let skippedSummary = '';
+                const totalSkipped = skippedRows.missingQuestion.length + skippedRows.missingAnswer.length;
+                
+                if (totalSkipped > 0) {
+                    skippedSummary = `\n\n⚠️ ${totalSkipped} row(s) ignored:`;
+                    if (skippedRows.missingQuestion.length > 0) {
+                        skippedSummary += `\n• ${skippedRows.missingQuestion.length} missing Question`;
+                    }
+                    if (skippedRows.missingAnswer.length > 0) {
+                        skippedSummary += `\n• ${skippedRows.missingAnswer.length} missing Answer`;
+                    }
+                }
+                
                 // Apply import mode
                 let resultMessage = '';
                 if (mode === 'replace') {
@@ -1356,6 +2134,14 @@ async function executeImport(mode) {
                     saveFlashcards();
                     console.log('Replaced all questions');
                     resultMessage = `Successfully replaced all questions!\n\nImported: ${newQuestions.length} questions`;
+                    
+                    if (skippedSummary) {
+                        resultMessage += skippedSummary;
+                    }
+                    
+                    if (rowsWithMissingIds.length > 0) {
+                        resultMessage += `\n\n⚠️ ${rowsWithMissingIds.length} question(s) missing IDs - auto-generated IDs assigned.`;
+                    }
                 } else {
                     // Insert mode - skip duplicates
                     let addedCount = 0;
@@ -1385,6 +2171,14 @@ async function executeImport(mode) {
                     }
                     
                     resultMessage = `Successfully imported!\n\nNew questions added: ${addedCount}\nDuplicates skipped: ${duplicateCount}\nTotal questions now: ${flashcards.length}`;
+                    
+                    if (skippedSummary) {
+                        resultMessage += skippedSummary;
+                    }
+                    
+                    if (rowsWithMissingIds.length > 0) {
+                        resultMessage += `\n\n⚠️ ${rowsWithMissingIds.length} question(s) missing IDs - auto-generated IDs assigned.`;
+                    }
                 }
                 
                 updateProgress(100, 'Complete!');
@@ -1427,6 +2221,59 @@ async function executeImport(mode) {
 
 let currentDetailQuestionId = null;
 
+// Parse explanation to extract context and option explanations
+function parseExplanation(explanationText) {
+    if (!explanationText || !explanationText.trim()) {
+        return { context: '', optionExplanations: {} };
+    }
+    
+    // Pattern to match option letters (A., B., C., etc.)
+    const optionPattern = /^([A-Z])\.\s*/gm;
+    
+    // Find all matches
+    const matches = [];
+    let match;
+    while ((match = optionPattern.exec(explanationText)) !== null) {
+        matches.push({
+            letter: match[1],
+            index: match.index
+        });
+    }
+    
+    // If no options found, entire text is context
+    if (matches.length === 0) {
+        // Remove "Context:" prefix if it exists
+        let context = explanationText.trim();
+        if (context.toLowerCase().startsWith('context:')) {
+            context = context.substring(8).trim(); // Remove "Context:" (8 characters)
+        }
+        return { context: context, optionExplanations: {} };
+    }
+    
+    // Extract context (everything before first option)
+    let context = explanationText.substring(0, matches[0].index).trim();
+    
+    // Remove "Context:" prefix if it exists
+    if (context.toLowerCase().startsWith('context:')) {
+        context = context.substring(8).trim(); // Remove "Context:" (8 characters)
+    }
+    
+    // Extract option explanations
+    const optionExplanations = {};
+    for (let i = 0; i < matches.length; i++) {
+        const currentMatch = matches[i];
+        const nextMatch = matches[i + 1];
+        
+        const startIndex = currentMatch.index + currentMatch.letter.length + 1; // +1 for the dot
+        const endIndex = nextMatch ? nextMatch.index : explanationText.length;
+        
+        const explanation = explanationText.substring(startIndex, endIndex).trim();
+        optionExplanations[currentMatch.letter] = explanation;
+    }
+    
+    return { context, optionExplanations };
+}
+
 function showQuestionDetails(questionId) {
     currentDetailQuestionId = questionId;
     const question = flashcards.find(q => q.id === questionId);
@@ -1443,27 +2290,58 @@ function showQuestionDetails(questionId) {
     const optionsContainer = document.getElementById('detail-options-container');
     optionsContainer.innerHTML = '';
     
+    // Parse explanation to get option explanations
+    const explanationText = question.explanation || question.notes || '';
+    const parsed = parseExplanation(explanationText);
+    
     question.options.forEach((option, index) => {
         const isCorrect = question.correctAnswers.includes(index);
+        const letter = String.fromCharCode(65 + index);
+        
+        // Check if there's an explanation for this option
+        let optionExplanation = null;
+        
+        // First check if optionExplanations object exists (new format)
+        if (question.optionExplanations && question.optionExplanations[letter]) {
+            optionExplanation = question.optionExplanations[letter];
+        } else {
+            // Fallback to parsing from explanation text (old format)
+            optionExplanation = parsed.optionExplanations[letter];
+        }
+        
         const optionDiv = document.createElement('div');
-        optionDiv.className = 'detail-option-item' + (isCorrect ? ' correct-answer' : '');
-        optionDiv.innerHTML = `
-            <div class="detail-option-letter">${String.fromCharCode(65 + index)}</div>
-            <div class="detail-option-text">${linkifyText(option)}</div>
-            ${isCorrect ? '<span style="color: #28a745; font-weight: 700;">✓</span>' : ''}
+        optionDiv.className = 'detail-option-wrapper';
+        
+        // Main option card
+        let optionHTML = `
+            <div class="detail-option-item ${isCorrect ? 'correct-answer' : ''}" ${optionExplanation ? `style="cursor: pointer;" onclick="toggleDetailOptionExplanation('${letter}')" id="detail-option-${letter}"` : ''}>
+                <div class="detail-option-letter">${letter}</div>
+                <div class="detail-option-text">${linkifyText(option)}</div>
+                ${isCorrect ? '<span style="color: #28a745; font-weight: 700; margin-right: 8px;">✓</span>' : ''}
+            </div>
         `;
+        
+        // Explanation card (if exists)
+        if (optionExplanation) {
+            optionHTML += `
+                <div class="detail-option-explanation-card" id="detail-explanation-${letter}" style="display: none;">
+                    <div class="detail-option-explanation-icon">💡</div>
+                    <div class="detail-option-explanation-text">${linkifyText(optionExplanation)}</div>
+                </div>
+            `;
+        }
+        
+        optionDiv.innerHTML = optionHTML;
         optionsContainer.appendChild(optionDiv);
     });
     
-    // Show explanation if available
+    // Show explanation section
     const notesSection = document.getElementById('detail-notes-section');
     const notesDiv = document.getElementById('detail-notes');
-    if (question.explanation && question.explanation.trim()) {
-        notesDiv.innerHTML = linkifyText(question.explanation);
-        notesSection.style.display = 'block';
-    } else if (question.notes && question.notes.trim()) {
-        // Backward compatibility with old "notes" field
-        notesDiv.innerHTML = linkifyText(question.notes);
+    
+    if (parsed.context) {
+        // Show the context (with "Context:" removed)
+        notesDiv.innerHTML = `<div style="color: #2c3e50; line-height: 1.6; font-size: 0.95rem;">${linkifyText(parsed.context)}</div>`;
         notesSection.style.display = 'block';
     } else {
         notesSection.style.display = 'none';
@@ -1484,7 +2362,7 @@ function showQuestionDetails(questionId) {
         let infoHTML = '';
         
         if (hasType) {
-            infoHTML += `<div class="info-type-text"><strong>Type:</strong> ${question.type}</div>`;
+            infoHTML += `<div class="info-type-text"><strong>Domain:</strong> ${question.type}</div>`;
         }
         
         if (hasZenPosition) {
@@ -1538,11 +2416,73 @@ function showQuestionDetails(questionId) {
     
     // Show modal
     document.getElementById('question-details-modal').classList.add('active');
+    saveCurrentScreen(); // Save state when modal opens
 }
 
 function closeQuestionDetailsModal() {
     document.getElementById('question-details-modal').classList.remove('active');
     currentDetailQuestionId = null;
+    currentOpenExplanation = null; // Reset open explanation when closing modal
+    currentOpenDetailOption = null; // Reset open detail option when closing modal
+    saveCurrentScreen(); // Save state when modal closes
+}
+
+// Toggle option explanation visibility (only one open at a time)
+let currentOpenExplanation = null;
+let currentOpenDetailOption = null;
+
+function toggleOptionExplanation(letter) {
+    const content = document.getElementById(`explanation-${letter}`);
+    const arrow = document.getElementById(`arrow-${letter}`);
+    
+    if (!content || !arrow) return;
+    
+    // If clicking the currently open one, close it
+    if (currentOpenExplanation === letter) {
+        content.style.display = 'none';
+        arrow.style.transform = 'rotate(0deg)';
+        currentOpenExplanation = null;
+    } else {
+        // Close previously open explanation
+        if (currentOpenExplanation) {
+            const prevContent = document.getElementById(`explanation-${currentOpenExplanation}`);
+            const prevArrow = document.getElementById(`arrow-${currentOpenExplanation}`);
+            if (prevContent) prevContent.style.display = 'none';
+            if (prevArrow) prevArrow.style.transform = 'rotate(0deg)';
+        }
+        
+        // Open the clicked one
+        content.style.display = 'block';
+        arrow.style.transform = 'rotate(180deg)';
+        currentOpenExplanation = letter;
+    }
+}
+
+function toggleDetailOptionExplanation(letter) {
+    const content = document.getElementById(`detail-explanation-${letter}`);
+    const optionCard = document.getElementById(`detail-option-${letter}`);
+    
+    if (!content || !optionCard) return;
+    
+    // If clicking the currently open one, close it
+    if (currentOpenDetailOption === letter) {
+        content.style.display = 'none';
+        optionCard.classList.remove('option-expanded');
+        currentOpenDetailOption = null;
+    } else {
+        // Close previously open explanation
+        if (currentOpenDetailOption) {
+            const prevContent = document.getElementById(`detail-explanation-${currentOpenDetailOption}`);
+            const prevOptionCard = document.getElementById(`detail-option-${currentOpenDetailOption}`);
+            if (prevContent) prevContent.style.display = 'none';
+            if (prevOptionCard) prevOptionCard.classList.remove('option-expanded');
+        }
+        
+        // Open the clicked one
+        content.style.display = 'flex';
+        optionCard.classList.add('option-expanded');
+        currentOpenDetailOption = letter;
+    }
 }
 
 function updateQuestionDetailsStats() {
@@ -1678,15 +2618,30 @@ function editQuestionFromDetails() {
     question.options.forEach((option, index) => {
         const letter = String.fromCharCode(65 + index);
         const isCorrect = question.correctAnswers.includes(index);
+        const optionExplanation = question.optionExplanations?.[letter] || '';
         
         const optionCard = document.createElement('div');
         optionCard.className = 'option-input-card' + (isCorrect ? ' checked' : '');
         optionCard.innerHTML = `
             <input type="checkbox" class="option-checkbox" onchange="toggleOptionHighlight(this)" ${isCorrect ? 'checked' : ''}>
             <input type="text" class="option-input-simple" placeholder="Option ${letter}" value="${option}">
-            <button type="button" class="option-delete-btn" onclick="deleteOption(this)" title="Delete option">×</button>
+            <div class="option-controls-zone">
+                <svg class="option-expand-btn" onclick="toggleOptionExplanationInModal(this)" title="Add explanation" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+                <button type="button" class="option-delete-btn" onclick="deleteOption(this)" title="Delete option">×</button>
+            </div>
+            <div class="option-explanation-field" style="display: none;">
+                <textarea class="option-explanation-textarea" placeholder="Explanation for this option (optional)..." rows="2">${optionExplanation}</textarea>
+            </div>
         `;
         optionsContainer.appendChild(optionCard);
+        
+        // Auto-resize textarea if it has content
+        if (optionExplanation) {
+            const textarea = optionCard.querySelector('.option-explanation-textarea');
+            autoResizeTextarea(textarea);
+        }
     });
     
     // Change modal title and button
@@ -1716,16 +2671,25 @@ function saveEditedQuestion(questionId) {
     const optionCards = document.querySelectorAll('#new-options-container .option-input-card');
     const options = [];
     const correctAnswers = [];
+    const optionExplanations = {};
     
     optionCards.forEach((card, index) => {
         const checkbox = card.querySelector('.option-checkbox');
         const input = card.querySelector('.option-input-simple');
+        const explanationTextarea = card.querySelector('.option-explanation-textarea');
         const optionText = input.value.trim();
         
         if (optionText) {
             options.push(optionText);
             if (checkbox.checked) {
                 correctAnswers.push(index);
+            }
+            
+            // Save option explanation if exists
+            const explanationText = explanationTextarea?.value.trim();
+            if (explanationText) {
+                const letter = String.fromCharCode(65 + index);
+                optionExplanations[letter] = explanationText;
             }
         }
     });
@@ -1758,6 +2722,7 @@ function saveEditedQuestion(questionId) {
         flashcards[index].verified = isVerified;
         flashcards[index].deprecated = isDeprecated;
         flashcards[index].type = typeText;
+        flashcards[index].optionExplanations = optionExplanations;
         
         if (explanationText) {
             flashcards[index].explanation = explanationText;
@@ -1901,57 +2866,201 @@ function linkifyText(text) {
 // Search functionality
 function toggleSearch() {
     const searchContainer = document.getElementById('search-container');
-    const searchInput = document.getElementById('search-input');
+    const filterChipsContainer = document.getElementById('filter-chips-container');
     const searchBtn = document.querySelector('.search-btn');
     
     if (searchContainer.style.display === 'none') {
         searchContainer.style.display = 'block';
-        searchInput.focus();
+        filterChipsContainer.style.display = 'flex';
         searchBtn.classList.add('active');
+        document.getElementById('search-input').focus();
     } else {
         searchContainer.style.display = 'none';
-        searchInput.value = '';
-        filterDatabase();
+        filterChipsContainer.style.display = 'none';
         searchBtn.classList.remove('active');
+        clearSearch();
     }
 }
 
 function clearSearch() {
     document.getElementById('search-input').value = '';
-    filterDatabase();
-    document.getElementById('search-input').focus();
-}
-
-function filterDatabase() {
-    const searchTerm = document.getElementById('search-input').value.toLowerCase().trim();
-    const dbList = document.getElementById('database-list');
+    currentSort = 'default';
+    sortDirection = 'asc';
+    document.getElementById('current-sort-label').textContent = 'Default';
     
-    if (!searchTerm) {
-        // Show all questions
-        showDatabase();
-        return;
-    }
-    
-    // Filter questions
-    const filteredCards = flashcards.filter(card => {
-        // Search in question text
-        if (card.question.toLowerCase().includes(searchTerm)) return true;
-        
-        // Search in options
-        if (card.options.some(opt => opt.toLowerCase().includes(searchTerm))) return true;
-        
-        // Search in explanation/notes
-        if (card.explanation && card.explanation.toLowerCase().includes(searchTerm)) return true;
-        if (card.notes && card.notes.toLowerCase().includes(searchTerm)) return true;
-        
-        // Search in type
-        if (card.type && card.type.toLowerCase().includes(searchTerm)) return true;
-        
-        return false;
+    // Update dropdown active state
+    document.querySelectorAll('.sort-dropdown-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.dataset.sort === 'default') {
+            item.classList.add('active');
+        }
     });
     
-    // Display filtered results
+    // Reset direction button
+    const directionBtn = document.getElementById('sort-direction');
+    directionBtn.classList.remove('descending');
+    directionBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <polyline points="19 12 12 19 5 12"></polyline>
+        </svg>
+        Ascending
+    `;
+    
+    applyFiltersAndSort();
+}
+
+let currentSort = 'default';
+let sortDirection = 'asc';
+
+function toggleSortDropdown() {
+    const dropdown = document.getElementById('sort-dropdown-menu');
+    dropdown.classList.toggle('active');
+}
+
+function selectSort(event, sort, label) {
+    event.stopPropagation();
+    currentSort = sort;
+    document.getElementById('current-sort-label').textContent = label;
+    
+    // Update active state
+    document.querySelectorAll('.sort-dropdown-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    // Close dropdown
+    document.getElementById('sort-dropdown-menu').classList.remove('active');
+    
+    applyFiltersAndSort();
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+    const dropdown = document.getElementById('sort-dropdown-menu');
+    const dropdownChip = document.querySelector('.sort-dropdown-chip');
+    if (dropdown && dropdownChip && !dropdownChip.contains(event.target)) {
+        dropdown.classList.remove('active');
+    }
+});
+
+function setSort(sort) {
+    currentSort = sort;
+    updateFilterChips();
+    applyFiltersAndSort();
+}
+
+function toggleSortDirection() {
+    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    const directionBtn = document.getElementById('sort-direction');
+    if (sortDirection === 'desc') {
+        directionBtn.classList.add('descending');
+        directionBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <polyline points="19 12 12 19 5 12"></polyline>
+            </svg>
+            Descending
+        `;
+    } else {
+        directionBtn.classList.remove('descending');
+        directionBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <polyline points="19 12 12 19 5 12"></polyline>
+            </svg>
+            Ascending
+        `;
+    }
+    applyFiltersAndSort();
+}
+
+function updateFilterChips() {
+    // Update sort chips
+    document.querySelectorAll('.sort-chip').forEach(chip => {
+        if (chip.dataset.sort === currentSort) {
+            chip.classList.add('active');
+        } else {
+            chip.classList.remove('active');
+        }
+    });
+}
+
+function applyFiltersAndSort() {
+    const searchTerm = document.getElementById('search-input').value.toLowerCase().trim();
+    
+    // Filter questions
+    let filteredCards = flashcards.filter(card => {
+        // Apply search filter
+        if (searchTerm) {
+            const matchesSearch = card.question.toLowerCase().includes(searchTerm) ||
+                                card.options.some(opt => opt.toLowerCase().includes(searchTerm));
+            if (!matchesSearch) return false;
+        }
+        
+        return true;
+    });
+    
+    // Sort questions
+    if (currentSort === 'default') {
+        // Default: sort by original question number (index in flashcards array)
+        filteredCards.sort((a, b) => {
+            const aIndex = flashcards.indexOf(a);
+            const bIndex = flashcards.indexOf(b);
+            const compareValue = aIndex - bIndex;
+            return sortDirection === 'asc' ? compareValue : -compareValue;
+        });
+    } else if (currentSort === 'appearance') {
+        // Appearance: sort by number of times appeared
+        filteredCards.sort((a, b) => {
+            const aStats = questionStats[a.id] || { zen: {appeared: 0}, exam: {appeared: 0}, examOfficial: {appeared: 0} };
+            const bStats = questionStats[b.id] || { zen: {appeared: 0}, exam: {appeared: 0}, examOfficial: {appeared: 0} };
+            const aTotal = aStats.zen.appeared + aStats.exam.appeared + aStats.examOfficial.appeared;
+            const bTotal = bStats.zen.appeared + bStats.exam.appeared + bStats.examOfficial.appeared;
+            const compareValue = aTotal - bTotal;
+            return sortDirection === 'asc' ? compareValue : -compareValue;
+        });
+    } else if (currentSort === 'accuracy') {
+        // Accuracy: sort by accuracy percentage
+        filteredCards.sort((a, b) => {
+            const aStats = questionStats[a.id] || { zen: {appeared: 0, correct: 0}, exam: {appeared: 0, correct: 0}, examOfficial: {appeared: 0, correct: 0} };
+            const bStats = questionStats[b.id] || { zen: {appeared: 0, correct: 0}, exam: {appeared: 0, correct: 0}, examOfficial: {appeared: 0, correct: 0} };
+            const aTotal = aStats.zen.appeared + aStats.exam.appeared + aStats.examOfficial.appeared;
+            const bTotal = bStats.zen.appeared + bStats.exam.appeared + bStats.examOfficial.appeared;
+            const aCorrect = aStats.zen.correct + aStats.exam.correct + aStats.examOfficial.correct;
+            const bCorrect = bStats.zen.correct + bStats.exam.correct + bStats.examOfficial.correct;
+            const aAccuracy = aTotal > 0 ? (aCorrect / aTotal) : 0;
+            const bAccuracy = bTotal > 0 ? (bCorrect / bTotal) : 0;
+            const compareValue = aAccuracy - bAccuracy;
+            return sortDirection === 'asc' ? compareValue : -compareValue;
+        });
+    } else if (currentSort === 'zen-position') {
+        // Zen Deck Order: sort by position in zen deck
+        filteredCards.sort((a, b) => {
+            const aPos = zenDeck.indexOf(a.id);
+            const bPos = zenDeck.indexOf(b.id);
+            if (aPos === -1 && bPos === -1) return 0;
+            if (aPos === -1) return 1;
+            if (bPos === -1) return -1;
+            const compareValue = aPos - bPos;
+            return sortDirection === 'asc' ? compareValue : -compareValue;
+        });
+    }
+    
+    // Display results
+    displayFilteredCards(filteredCards);
+}
+
+function displayFilteredCards(filteredCards) {
+    const dbList = document.getElementById('database-list');
     dbList.innerHTML = '';
+    
+    // Update question count
+    const questionCount = document.getElementById('question-count');
+    if (questionCount) {
+        const count = filteredCards.length;
+        questionCount.textContent = count === 1 ? '1 question' : `${count} questions`;
+    }
     
     if (filteredCards.length === 0) {
         dbList.innerHTML = `
@@ -1961,7 +3070,7 @@ function filterDatabase() {
                     <path d="m21 21-4.35-4.35"></path>
                 </svg>
                 <p style="font-size: 1.1rem; margin: 0;">No questions found</p>
-                <p style="font-size: 0.9rem; margin-top: 10px;">Try a different search term</p>
+                <p style="font-size: 0.9rem; margin-top: 10px;">Try adjusting your filters</p>
             </div>
         `;
         return;
@@ -1985,15 +3094,50 @@ function filterDatabase() {
             <button class="db-card-delete" onclick="event.stopPropagation(); deleteQuestion('${card.id}')" title="Delete question">×</button>
             <div class="db-card-number">${index + 1}</div>
             <div class="db-card-content">
-                <div class="db-question"><strong>Q:</strong> ${card.question}</div>
-                <div class="db-answer">${optionsHTML}</div>
-                <div style="margin-top: 10px; color: #27ae60; font-weight: 600;">Correct: ${correctLetters}</div>
+                <div class="db-card-header">
+                    <div class="db-question"><strong>Q:</strong> ${card.question}</div>
+                    <svg class="db-card-arrow" id="arrow-${card.id}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" onclick="event.stopPropagation(); toggleCardOptions('${card.id}')">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </div>
+                <div class="db-card-options" id="options-${card.id}" style="display: none;">
+                    <div class="db-answer">${optionsHTML}</div>
+                    <div style="margin-top: 10px; color: #27ae60; font-weight: 600;">Correct: ${correctLetters}</div>
+                </div>
             </div>
         `;
         dbList.appendChild(cardElement);
     });
+}
+
+function toggleSearch() {
+    const searchContainer = document.getElementById('search-container');
+    const filterChipsContainer = document.getElementById('filter-chips-container');
+    const searchInput = document.getElementById('search-input');
+    const searchBtn = document.querySelector('.search-btn');
     
-    console.log(`Found ${filteredCards.length} questions matching "${searchTerm}"`);
+    if (searchContainer.style.display === 'none') {
+        searchContainer.style.display = 'block';
+        filterChipsContainer.style.display = 'block';
+        searchInput.focus();
+        searchBtn.classList.add('active');
+    } else {
+        searchContainer.style.display = 'none';
+        filterChipsContainer.style.display = 'none';
+        searchInput.value = '';
+        filterDatabase();
+        searchBtn.classList.remove('active');
+    }
+}
+
+function clearSearch() {
+    document.getElementById('search-input').value = '';
+    filterDatabase();
+    document.getElementById('search-input').focus();
+}
+
+function filterDatabase() {
+    applyFiltersAndSort();
 }
 
 
@@ -2014,6 +3158,10 @@ function showResultQuestionDetail(index) {
     const result = sessionResults[index];
     const question = result.question;
     
+    // Parse explanation to get option explanations
+    const explanationText = question.explanation || question.notes || '';
+    const parsed = parseExplanation(explanationText);
+    
     // Build modal content similar to question details but with user's answers
     let modalHTML = `
         <div class="modal-content">
@@ -2029,12 +3177,22 @@ function showResultQuestionDetail(index) {
                 
                 <div class="form-group">
                     <label style="font-weight: 700; color: #2c3e50; margin-bottom: 10px;">Your Answer:</label>
-                    <div style="margin-bottom: 20px;">
+                    <div id="result-options-container" style="margin-bottom: 20px;">
     `;
     
     question.options.forEach((option, i) => {
         const isCorrect = question.correctAnswers.includes(i);
         const wasSelected = result.userAnswers.includes(i);
+        const letter = String.fromCharCode(65 + i);
+        
+        // Check if there's an explanation for this option
+        let optionExplanation = null;
+        if (question.optionExplanations && question.optionExplanations[letter]) {
+            optionExplanation = question.optionExplanations[letter];
+        } else {
+            optionExplanation = parsed.optionExplanations[letter];
+        }
+        
         let className = 'detail-option-item';
         let badge = '';
         
@@ -2047,12 +3205,25 @@ function showResultQuestionDetail(index) {
         }
         
         modalHTML += `
-            <div class="${className}" style="margin-bottom: 10px;">
-                <div class="detail-option-letter">${String.fromCharCode(65 + i)}</div>
-                <div class="detail-option-text">${linkifyText(option)}</div>
-                ${badge}
-            </div>
+            <div class="detail-option-wrapper">
+                <div class="${className}" ${optionExplanation ? `style="cursor: pointer; margin-bottom: 10px;" onclick="toggleResultOptionExplanation('${letter}')" id="result-option-${letter}"` : 'style="margin-bottom: 10px;"'}>
+                    <div class="detail-option-letter">${letter}</div>
+                    <div class="detail-option-text">${linkifyText(option)}</div>
+                    ${badge}
+                </div>
         `;
+        
+        // Add explanation card if exists
+        if (optionExplanation) {
+            modalHTML += `
+                <div class="detail-option-explanation-card" id="result-explanation-${letter}" style="display: none;">
+                    <div class="detail-option-explanation-icon">💡</div>
+                    <div class="detail-option-explanation-text">${linkifyText(optionExplanation)}</div>
+                </div>
+            `;
+        }
+        
+        modalHTML += `</div>`;
     });
     
     modalHTML += `
@@ -2092,7 +3263,7 @@ function showResultQuestionDetail(index) {
         `;
         
         if (hasType) {
-            modalHTML += `<div class="info-type-text"><strong>Type:</strong> ${question.type}</div>`;
+            modalHTML += `<div class="info-type-text"><strong>Domain:</strong> ${question.type}</div>`;
         }
         
         if (hasVerified || hasDeprecated) {
@@ -2189,7 +3360,47 @@ function closeResultDetailModal() {
     if (modal) {
         modal.remove();
     }
+    currentOpenResultOption = null;
 }
+
+// Track currently open result option explanation
+let currentOpenResultOption = null;
+
+// Toggle option explanation in result detail modal
+function toggleResultOptionExplanation(letter) {
+    const content = document.getElementById(`result-explanation-${letter}`);
+    const optionCard = document.getElementById(`result-option-${letter}`);
+    
+    if (!content || !optionCard) return;
+    
+    // If clicking the currently open one, close it
+    if (currentOpenResultOption === letter) {
+        content.style.display = 'none';
+        optionCard.classList.remove('option-expanded');
+        currentOpenResultOption = null;
+    } else {
+        // Close previously open explanation
+        if (currentOpenResultOption) {
+            const prevContent = document.getElementById(`result-explanation-${currentOpenResultOption}`);
+            const prevOptionCard = document.getElementById(`result-option-${currentOpenResultOption}`);
+            if (prevContent) prevContent.style.display = 'none';
+            if (prevOptionCard) prevOptionCard.classList.remove('option-expanded');
+        }
+        
+        // Open the clicked one
+        content.style.display = 'flex';
+        optionCard.classList.add('option-expanded');
+        currentOpenResultOption = letter;
+    }
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', function(event) {
+    const modal = document.getElementById('result-detail-modal');
+    if (modal && event.target === modal) {
+        closeResultDetailModal();
+    }
+});
 
 function toggleResultExplanation() {
     const content = document.getElementById('result-explanation-content');
@@ -2236,6 +3447,25 @@ function openExcelFormattingGuide() {
 
 function closeExcelFormattingGuide() {
     document.getElementById('excel-formatting-modal').classList.remove('active');
+}
+
+function showZenModeInfo() {
+    showCustomAlert(
+        '🧘 Zen Mode',
+        `Zen Mode uses spaced repetition to help you learn efficiently.
+
+How it works:
+• Questions you answer correctly move to the END of the deck
+• Questions you get wrong move to position ~10 (20% into deck)
+• This ensures you review difficult questions more frequently
+• The deck never ends - it cycles continuously for ongoing practice
+
+Your current deck has ${zenDeck.length} questions.
+
+Perfect for daily study sessions and long-term retention!`,
+        '✨',
+        [{ text: 'Got it!', type: 'btn-primary' }]
+    );
 }
 
 // Keyboard handler for Enter key and number keys
@@ -2293,3 +3523,69 @@ function handleKeyPress(event) {
 
 // Add keyboard listener when page loads
 document.addEventListener('keydown', handleKeyPress);
+
+// Close modals when clicking outside
+document.addEventListener('click', function(event) {
+    // Custom alert
+    const customAlert = document.getElementById('custom-alert');
+    if (customAlert && customAlert.classList.contains('active')) {
+        const alertContent = customAlert.querySelector('.alert-content');
+        if (event.target === customAlert && !alertContent.contains(event.target)) {
+            closeCustomAlert();
+        }
+    }
+    
+    // Import modal
+    const importModal = document.getElementById('import-modal');
+    if (importModal && importModal.classList.contains('active')) {
+        const modalContent = importModal.querySelector('.modal-content');
+        if (event.target === importModal && !modalContent.contains(event.target)) {
+            closeImportModal();
+        }
+    }
+    
+    // Add question modal
+    const addQuestionModal = document.getElementById('add-question-modal');
+    if (addQuestionModal && addQuestionModal.classList.contains('active')) {
+        const modalContent = addQuestionModal.querySelector('.modal-content');
+        if (event.target === addQuestionModal && !modalContent.contains(event.target)) {
+            closeAddQuestionModal();
+        }
+    }
+    
+    // Question details modal
+    const questionDetailsModal = document.getElementById('question-details-modal');
+    if (questionDetailsModal && questionDetailsModal.classList.contains('active')) {
+        const modalContent = questionDetailsModal.querySelector('.modal-content');
+        if (event.target === questionDetailsModal && !modalContent.contains(event.target)) {
+            closeQuestionDetailsModal();
+        }
+    }
+    
+    // Excel formatting modal
+    const excelFormattingModal = document.getElementById('excel-formatting-modal');
+    if (excelFormattingModal && excelFormattingModal.classList.contains('active')) {
+        const modalContent = excelFormattingModal.querySelector('.modal-content');
+        if (event.target === excelFormattingModal && !modalContent.contains(event.target)) {
+            closeExcelFormattingGuide();
+        }
+    }
+    
+    // Result question detail modal
+    const resultQuestionModal = document.getElementById('result-question-modal');
+    if (resultQuestionModal && resultQuestionModal.classList.contains('active')) {
+        const modalContent = resultQuestionModal.querySelector('.modal-content');
+        if (event.target === resultQuestionModal && !modalContent.contains(event.target)) {
+            closeResultQuestionDetail();
+        }
+    }
+    
+    // Domains modal
+    const domainsModal = document.getElementById('domains-modal');
+    if (domainsModal && domainsModal.classList.contains('active')) {
+        const modalContent = domainsModal.querySelector('.modal-content');
+        if (event.target === domainsModal && !modalContent.contains(event.target)) {
+            closeDomainsModal();
+        }
+    }
+});
