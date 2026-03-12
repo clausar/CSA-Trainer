@@ -102,20 +102,31 @@ loadZenDeck();
 
 // Restore screen after a short delay to ensure DOM is ready
 setTimeout(() => {
-    restoreScreen();
+    try {
+        restoreScreen();
+    } catch (e) {
+        console.error('Error restoring screen:', e);
+        showScreen('home-screen');
+    }
     
     // Hide loader and show app after everything is ready
     setTimeout(() => {
         const loader = document.getElementById('app-loader');
         const container = document.querySelector('.container');
         
-        container.classList.add('ready');
-        loader.classList.add('hidden');
-        
-        // Remove loader from DOM after animation
-        setTimeout(() => {
-            loader.remove();
-        }, 300);
+        if (container) {
+            container.classList.add('ready');
+        }
+        if (loader) {
+            loader.classList.add('hidden');
+            
+            // Remove loader from DOM after animation
+            setTimeout(() => {
+                if (loader.parentNode) {
+                    loader.remove();
+                }
+            }, 300);
+        }
     }, 150); // Extra delay to ensure modal is opened if needed
 }, 50);
 
@@ -797,13 +808,13 @@ function loadCard() {
         domainChip.style.display = 'none';
     }
     
-    // Show context button if question has explanation/context
+    // Show context button only in zen mode if question has explanation/context
     const contextButton = document.getElementById('context-button');
     const contextCard = document.getElementById('question-context-card');
     const explanationText = card.explanation || card.notes || '';
     const parsed = parseExplanation(explanationText);
     
-    if (parsed.context && parsed.context.trim()) {
+    if (currentMode === 'zen' && parsed.context && parsed.context.trim()) {
         contextButton.style.display = 'flex';
         document.getElementById('question-context-text').innerHTML = linkifyText(parsed.context);
     } else {

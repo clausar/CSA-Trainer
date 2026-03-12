@@ -17,7 +17,8 @@ const mimeTypes = {
 };
 
 const server = http.createServer((req, res) => {
-    let filePath = '.' + req.url;
+    // Remove query string from URL
+    let filePath = '.' + req.url.split('?')[0];
     if (filePath === './') {
         filePath = './index.html';
     }

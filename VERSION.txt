@@ -1,11 +1,13 @@
 Alpha 2.2
 
 Changelog:
-- Fixed Official CSA Exam Settings checkbox - now activates with single click anywhere on card
-- Improved results screen layout - back arrow overlays content without forcing extra space
-- Reorganized domains modal - Random Mix moved to top, Total percentage at bottom
-- Fixed percentage total calculation to work correctly with official domains
-- Added spacing between Random Mix and domain list for better visual separation
+- Fixed Official CSA Exam Settings checkbox - now activates with single click
+- Context hint button (💡) now only appears in Zen Mode, not in Exam Mode
+- Fixed server.js to handle query strings in URLs properly
+- Reorganized Domain Distribution modal - Random Mix now at top
+- Added spacing between Random Mix and domain cards
+- Fixed percentage total calculation to use official domains
+- Fixed results screen back arrow positioning (absolute, overlays content)
 
 Previous versions:
 - Alpha 2.1: Added Zen Deck position in question details
